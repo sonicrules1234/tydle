@@ -1,45 +1,39 @@
-use std::collections::HashMap;
+use std::{cell::Cell, sync::Arc};
+
+use anyhow::Result;
+use reqwest::cookie;
+
+use crate::{extractor::auth::ExtractorAuthHandle, yt_scraper::scraper::YtScraper};
 
 pub struct YtExtractor {
-    http_client: reqwest::Client,
-    x_forwarded_for_ip: Option<&'static str>,
+    pub passed_auth_cookies: Cell<bool>,
+    pub http_client: Arc<reqwest::Client>,
+    pub yt_scraper: YtScraper,
+    pub cookie_jar: cookie::Jar,
+    pub x_forwarded_for_ip: Option<&'static str>,
 }
 
 trait InfoExtractor {
-    fn request_webpage(self, url: &str, headers: HashMap<&str, &str>, query: HashMap<&str, &str>);
+    fn initial_extract(self);
 }
 
 impl YtExtractor {
-    fn new() -> Self {
-        Self {
-            http_client: reqwest::Client::new(),
+    fn new() -> Result<Self> {
+        let http_client = Arc::new(reqwest::Client::new());
+        let extractor = Self {
+            passed_auth_cookies: Cell::new(false),
+            yt_scraper: YtScraper::new(http_client.clone()),
+            http_client,
+            cookie_jar: cookie::Jar::default(),
             x_forwarded_for_ip: None,
-        }
+        };
+
+        extractor.initialize_cookie_auth()?;
+
+        Ok(extractor)
     }
 }
 
 impl InfoExtractor for YtExtractor {
-    fn request_webpage(self, url: &str, headers: HashMap<&str, &str>, query: HashMap<&str, &str>) {
-        let mut headers_copy = headers.clone();
-        // ! SKIPPED PART HERE
-
-        // Some sites check X-Forwarded-For HTTP header in order to figure out the origin of the client behind proxy.
-        // This allows bypassing geo restriction by faking this header's value to IP that belongs to some geo unrestricted country.
-        // We will do so once we encounter any geo restriction error.
-        if let Some(forwarded_ip) = self.x_forwarded_for_ip {
-            headers_copy.insert("X-Forwarded-For", forwarded_ip);
-        }
-
-        let mut request_builder = self.http_client.get(url);
-
-        for (key, value) in headers {
-            request_builder = request_builder.header(key, value);
-        }
-
-        for (key, value) in query {
-            request_builder = request_builder.query(&[key, value]);
-        }
-
-        ()
-    }
+    fn initial_extract(self) {}
 }

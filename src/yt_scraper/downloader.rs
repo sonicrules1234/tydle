@@ -1,14 +1,13 @@
 use anyhow::Result;
 use reqwest::Url;
 
-use crate::extractor::{
-    client::INNERTUBE_CLIENTS,
-    yt_interface::{VideoId, YtClient},
+use crate::{
+    extractor::{
+        client::INNERTUBE_CLIENTS,
+        yt_interface::{VideoId, YtClient},
+    },
+    yt_scraper::scraper::YtScraper,
 };
-
-pub struct YtScraper {
-    http_client: reqwest::Client,
-}
 
 pub trait Downloader {
     async fn download_initial_webpage(
@@ -17,14 +16,6 @@ pub trait Downloader {
         webpage_client: &YtClient,
         video_id: &VideoId,
     ) -> Result<String>;
-}
-
-impl YtScraper {
-    pub fn new() -> Self {
-        Self {
-            http_client: reqwest::Client::new(),
-        }
-    }
 }
 
 impl Downloader for YtScraper {
@@ -50,6 +41,10 @@ impl Downloader for YtScraper {
         }
 
         let response = webpage_request.send().await?;
+
+        for (key, value) in response.headers() {
+            println!("{}: {}", key.as_str(), value.to_str()?);
+        }
         let webpage = response.text().await.map_err(|e| anyhow::Error::new(e))?;
 
         Ok(webpage)

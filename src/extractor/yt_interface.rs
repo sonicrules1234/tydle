@@ -34,6 +34,7 @@ impl YtClient {
 }
 
 pub const DEFAULT_YT_CLIENT: YtClient = YtClient::Web;
+pub const YT_URL: &str = "https://www.youtube.com";
 
 pub const SUPPORTED_LANGUAGE_CODES: [&str; 83] = [
     "af", "az", "id", "ms", "bs", "ca", "cs", "da", "de", "et", "en-IN", "en-GB", "en", "es",
