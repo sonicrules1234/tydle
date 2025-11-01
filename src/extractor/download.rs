@@ -1,27 +1,49 @@
-use anyhow::Result;
-use reqwest::Url;
+use std::collections::HashMap;
 
-use crate::{
-    extractor::{
-        client::INNERTUBE_CLIENTS,
-        yt_interface::{VideoId, YtClient},
-    },
-    yt_scraper::scraper::YtScraper,
+use anyhow::Result;
+use serde_json::Value;
+use url::Url;
+
+use crate::extractor::{
+    client::INNERTUBE_CLIENTS,
+    extract::{InfoExtractor, YtExtractor},
+    yt_interface::{VideoId, YtClient},
 };
 
-pub trait Downloader {
+pub trait ExtractorDownloadHandle {
+    async fn download_initial_data(
+        &self,
+        webpage_content: String,
+        webpage_client: &YtClient,
+        webpage_ytcfg: &HashMap<String, Value>,
+    ) -> Result<()>;
     async fn download_initial_webpage(
-        self,
+        &self,
         webpage_url: &str,
         webpage_client: &YtClient,
         video_id: &VideoId,
     ) -> Result<String>;
 }
 
-impl Downloader for YtScraper {
+impl ExtractorDownloadHandle for YtExtractor {
+    async fn download_initial_data(
+        &self,
+        webpage_content: String,
+        webpage_client: &YtClient,
+        webpage_ytcfg: &HashMap<String, Value>,
+    ) -> Result<()> {
+        let initial_data: Option<HashMap<String, Value>> = if !webpage_content.is_empty() {
+            Some(self.extract_yt_initial_data(webpage_content)?)
+        } else {
+            None
+        };
+
+        Ok(())
+    }
+
     // ! DOES NOT YET IMPLEMENT PLAYER PARAMS
     async fn download_initial_webpage(
-        self,
+        &self,
         webpage_url: &str,
         webpage_client: &YtClient,
         video_id: &VideoId,
@@ -37,7 +59,8 @@ impl Downloader for YtScraper {
 
         let client = innertube_client.innertube_context.get("client").unwrap();
         if let Some(user_agent) = client.get("userAgent") {
-            webpage_request = webpage_request.header("User-Agent", *user_agent);
+            webpage_request =
+                webpage_request.header("User-Agent", user_agent.as_str().unwrap_or_default());
         }
 
         let response = webpage_request.send().await?;

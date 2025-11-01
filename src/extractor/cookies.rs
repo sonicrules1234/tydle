@@ -31,6 +31,7 @@ impl SidCookies {
 pub trait ExtractorCookieHandle {
     fn get_cookies(&self, url: &str) -> Result<HashMap<String, String>>;
     fn get_youtube_cookies(&self) -> Result<HashMap<String, String>>;
+    /// Get SAPISID, 1PSAPISID, 3PSAPISID cookie values
     fn get_sid_cookies(&self) -> Result<SidCookies>;
     fn make_sid_authorization(
         &self,
@@ -39,6 +40,7 @@ pub trait ExtractorCookieHandle {
         origin: String,
         additional_parts: HashMap<&str, String>,
     ) -> Result<String>;
+    /// Generate API Session ID Authorization for Innertube requests. Assumes all requests are secure. (HTTPS)
     fn get_sid_authorization_header(
         &self,
         origin: Option<String>,
@@ -70,7 +72,6 @@ impl ExtractorCookieHandle for YtExtractor {
         self.get_cookies(YT_URL)
     }
 
-    /// Get SAPISID, 1PSAPISID, 3PSAPISID cookie values
     fn get_sid_cookies(&self) -> Result<SidCookies> {
         let yt_cookies = self.get_youtube_cookies()?;
         let yt_sapisid = yt_cookies.get("SAPISID").cloned();
@@ -133,7 +134,6 @@ impl ExtractorCookieHandle for YtExtractor {
         Ok(sid_auth)
     }
 
-    /// Generate API Session ID Authorization for Innertube requests. Assumes all requests are secure. (HTTPS)
     fn get_sid_authorization_header(
         &self,
         origin: Option<String>,
