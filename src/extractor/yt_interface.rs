@@ -20,7 +20,7 @@ impl YtEndpoint {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
 pub enum YtClient {
     Web,
     /// Safari UA returns pre-merged video+audio 144p/240p/360p/720p/1080p HLS formats.

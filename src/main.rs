@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use anyhow::Result;
 
 use extractor::yt_interface::VideoId;
@@ -15,7 +17,7 @@ async fn main() -> Result<()> {
     let video_id = VideoId::new("UWn9RdueB7E")?;
 
     extractor
-        .initial_extract(YT_URL, "", YT_URL, &YtClient::Web, &video_id)
+        .initial_extract(YT_URL, HashMap::new(), YT_URL, &YtClient::Web, &video_id)
         .await?;
 
     Ok(())

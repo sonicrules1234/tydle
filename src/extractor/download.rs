@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use anyhow::Result;
+use anyhow::{Error, Result};
 use serde_json::Value;
 use url::Url;
 
@@ -16,7 +16,7 @@ pub trait ExtractorDownloadHandle {
     async fn download_initial_data(
         &self,
         video_id: &VideoId,
-        webpage_content: String,
+        webpage_content: &String,
         webpage_client: &YtClient,
         webpage_ytcfg: &HashMap<String, Value>,
     ) -> Result<HashMap<String, Value>>;
@@ -32,7 +32,7 @@ impl ExtractorDownloadHandle for YtExtractor {
     async fn download_initial_data(
         &self,
         video_id: &VideoId,
-        webpage_content: String,
+        webpage_content: &String,
         webpage_client: &YtClient,
         webpage_ytcfg: &HashMap<String, Value>,
     ) -> Result<HashMap<String, Value>> {
@@ -85,7 +85,7 @@ impl ExtractorDownloadHandle for YtExtractor {
 
         let response = webpage_request.send().await?;
 
-        let webpage = response.text().await.map_err(|e| anyhow::Error::new(e))?;
+        let webpage = response.text().await.map_err(|e| Error::new(e))?;
 
         Ok(webpage)
     }
