@@ -7,6 +7,7 @@ use serde_json::Value;
 use crate::extractor::extract::YtExtractor;
 
 pub trait ExtractorJsonHandle {
+    fn find_key(&self, value: &Value, target: &str) -> Option<String>;
     fn search_json(
         &self,
         start_pattern: &str,
@@ -23,6 +24,31 @@ pub trait ExtractorJsonHandle {
 }
 
 impl ExtractorJsonHandle for YtExtractor {
+    fn find_key(&self, value: &Value, target: &str) -> Option<String> {
+        match value {
+            Value::Object(map) => {
+                for (k, v) in map {
+                    if k == target {
+                        if let Some(s) = v.as_str() {
+                            return Some(s.to_string());
+                        }
+                    } else if let Some(found) = self.find_key(v, target) {
+                        return Some(found);
+                    }
+                }
+            }
+            Value::Array(arr) => {
+                for v in arr {
+                    if let Some(found) = self.find_key(v, target) {
+                        return Some(found);
+                    }
+                }
+            }
+            _ => {}
+        }
+        None
+    }
+
     fn get_text(
         &self,
         data: &Value,

@@ -7,6 +7,7 @@ use serde_json::Value;
 use crate::extractor::{
     cookies::ExtractorCookieHandle,
     extract::YtExtractor,
+    json::ExtractorJsonHandle,
     utils::{convert_to_query_string, parse_query_string},
     yt_interface::{PREFERRED_LOCALE, YT_URL},
 };
@@ -29,7 +30,6 @@ pub trait ExtractorAuthHandle {
     fn parse_data_sync_id(&self, data_sync_id: String) -> (Option<String>, Option<String>);
     /// Index of current account in account list.
     fn get_session_index(&self, data: &[&HashMap<String, Value>]) -> Option<i32>;
-    fn find_key(&self, value: &Value, target: &str) -> Option<String>;
     fn generate_cookie_auth_headers(
         &self,
         ytcfg: HashMap<String, Value>,
@@ -42,31 +42,6 @@ pub trait ExtractorAuthHandle {
 
 /// Handles Auth with cookies and user-set preferences.
 impl ExtractorAuthHandle for YtExtractor {
-    fn find_key(&self, value: &Value, target: &str) -> Option<String> {
-        match value {
-            Value::Object(map) => {
-                for (k, v) in map {
-                    if k == target {
-                        if let Some(s) = v.as_str() {
-                            return Some(s.to_string());
-                        }
-                    } else if let Some(found) = self.find_key(v, target) {
-                        return Some(found);
-                    }
-                }
-            }
-            Value::Array(arr) => {
-                for v in arr {
-                    if let Some(found) = self.find_key(v, target) {
-                        return Some(found);
-                    }
-                }
-            }
-            _ => {}
-        }
-        None
-    }
-
     fn initialize_cookie_auth(&self) -> Result<()> {
         self.passed_auth_cookies.set(false);
         if self.has_auth_cookies()? {
