@@ -63,8 +63,7 @@ pub trait ExtractorPlayerHandle {
         webpage: &String,
         webpage_client: &YtClient,
         webpage_ytcfg: &HashMap<String, Value>,
-        is_premium_subscriber: bool,
-    ) -> Result<(Vec<HashMap<String, Value>>, Option<String>)>;
+    ) -> Result<Vec<HashMap<String, Value>>>;
 }
 
 impl ExtractorPlayerHandle for YtExtractor {
@@ -212,7 +211,7 @@ impl ExtractorPlayerHandle for YtExtractor {
         }
 
         let code = self
-            .download_direct_webpage(&player_url, &YtClient::Web, video_id)
+            .download_webpage(&player_url, &YtClient::Web, video_id)
             .await?;
 
         if !code.is_empty() {
@@ -306,8 +305,6 @@ impl ExtractorPlayerHandle for YtExtractor {
         let mut yt_query: HashMap<String, Value> = HashMap::new();
         yt_query.insert("videoId".into(), video_id.as_str().into());
 
-        // ! SKIPPED PLAYER PARAMS
-
         if let Some(po_tok) = po_token {
             yt_query.insert(
                 "serviceIntegrityDimensions".into(),
@@ -359,8 +356,7 @@ impl ExtractorPlayerHandle for YtExtractor {
         webpage: &String,
         webpage_client: &YtClient,
         webpage_ytcfg: &HashMap<String, Value>,
-        is_premium_subscriber: bool,
-    ) -> Result<(Vec<HashMap<String, Value>>, Option<String>)> {
+    ) -> Result<Vec<HashMap<String, Value>>> {
         let initial_pr = self.search_json(r"ytInitialPlayerResponse\s*=", &webpage, None, None)?;
         let mut prs: Vec<HashMap<String, Value>> = vec![];
 
@@ -525,6 +521,6 @@ impl ExtractorPlayerHandle for YtExtractor {
             return Err(anyhow!("Failed to extract any player response."));
         }
 
-        Ok((prs, player_url))
+        Ok(prs)
     }
 }

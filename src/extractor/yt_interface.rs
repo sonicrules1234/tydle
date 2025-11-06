@@ -174,3 +174,39 @@ impl fmt::Display for VideoId {
         self.0.fmt(f)
     }
 }
+
+#[derive(Debug, Clone)]
+pub enum YtStreamSource {
+    URL(String),
+    Signature(String),
+}
+
+#[derive(Debug, Clone)]
+pub struct YtStream {
+    pub asr: Option<u64>,
+    pub file_size: Option<u64>,
+    pub itag: Option<String>,
+    pub quality: Option<String>,
+    pub source: YtStreamSource,
+    pub tbr: f64,
+}
+
+impl YtStream {
+    pub fn new(
+        asr: Option<u64>,
+        file_size: Option<u64>,
+        itag: Option<String>,
+        quality: Option<String>,
+        source: YtStreamSource,
+        tbr: f64,
+    ) -> Self {
+        Self {
+            asr,
+            file_size,
+            itag,
+            quality,
+            source,
+            tbr,
+        }
+    }
+}

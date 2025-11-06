@@ -14,7 +14,7 @@ use crate::extractor::{
     download::ExtractorDownloadHandle,
     json::ExtractorJsonHandle,
     player::ExtractorPlayerHandle,
-    yt_interface::{VideoId, YtClient},
+    yt_interface::{VideoId, YtClient, YtStream, YtStreamSource},
     ytcfg::ExtractorYtCfgHandle,
 };
 
@@ -24,38 +24,34 @@ pub struct YtExtractor {
     pub cookie_jar: cookie::Jar,
     pub code_cache: HashMap<String, String>,
     pub player_cache: HashMap<(String, String), String>,
-    // pub x_forwarded_for_ip: Option<&'static str>,
 }
 
-pub struct InitialExtractInfo {
-    pub webpage: String,
-    pub webpage_ytcfg: HashMap<String, Value>,
-    pub initial_data: HashMap<String, Value>,
-    pub is_premium_subscriber: bool,
-    pub player_responses: Vec<HashMap<String, Value>>,
-    pub player_url: Option<String>,
-}
+// pub struct InitialExtractInfo {
+//     pub webpage: String,
+//     pub webpage_ytcfg: HashMap<String, Value>,
+//     pub initial_data: HashMap<String, Value>,
+//     pub is_premium_subscriber: bool,
+//     pub player_responses: Vec<HashMap<String, Value>>,
+//     pub player_url: Option<String>,
+// }
 
 pub trait InfoExtractor {
+    fn extract_formats(
+        &self,
+        player_responses: Vec<HashMap<String, Value>>,
+    ) -> Result<Vec<YtStream>>;
+    async fn extract_streams(&mut self, video_id: &VideoId) -> Result<()>;
     fn generate_checkok_params(&self) -> HashMap<String, Value>;
-    fn is_music_url(&self, url: &str) -> Result<bool>;
     fn is_premium_subscriber(&self, initial_data: &HashMap<String, Value>) -> Result<bool>;
     fn extract_ytcfg(&self, webpage_content: String) -> Result<HashMap<String, Value>>;
     fn extract_yt_initial_data(&self, webpage_content: &String) -> Result<HashMap<String, Value>>;
-    fn get_clients(
-        &self,
-        url: &str,
-        smuggled_data: &HashMap<String, String>,
-        is_premium_subscriber: bool,
-    ) -> Result<Vec<YtClient>>;
+    fn get_clients(&self, is_premium_subscriber: bool) -> Result<Vec<YtClient>>;
     async fn initial_extract(
         &mut self,
-        url: &str,
-        smuggled_data: HashMap<String, String>,
         webpage_url: &str,
         webpage_client: &YtClient,
         video_id: &VideoId,
-    ) -> Result<InitialExtractInfo>;
+    ) -> Result<Vec<HashMap<String, Value>>>;
 }
 
 impl YtExtractor {
@@ -85,11 +81,6 @@ impl InfoExtractor for YtExtractor {
         checkout_params_map.insert("racyCheckOk".into(), true.into());
 
         checkout_params_map
-    }
-
-    fn is_music_url(&self, url: &str) -> Result<bool> {
-        let re = Regex::new(r"(https?://)?music\.youtube\.com/")?;
-        Ok(re.is_match(url)?)
     }
 
     fn is_premium_subscriber(&self, initial_data: &HashMap<String, Value>) -> Result<bool> {
@@ -151,12 +142,7 @@ impl InfoExtractor for YtExtractor {
         Ok(json_val)
     }
 
-    fn get_clients(
-        &self,
-        url: &str,
-        smuggled_data: &HashMap<String, String>,
-        is_premium_subscriber: bool,
-    ) -> Result<Vec<YtClient>> {
+    fn get_clients(&self, is_premium_subscriber: bool) -> Result<Vec<YtClient>> {
         let mut clients = if is_premium_subscriber {
             // Premium does not require POT. (except for subtitles)
             vec![
@@ -177,12 +163,6 @@ impl InfoExtractor for YtExtractor {
         };
 
         if self.is_authenticated()? {
-            if smuggled_data.get("is_music_url").unwrap_or(&"".to_string()) == "true"
-                || self.is_music_url(url)?
-            {
-                clients.push(YtClient::WebMusic);
-            }
-
             let mut unsupported_clients = Vec::new();
 
             for client in &clients {
@@ -207,14 +187,111 @@ impl InfoExtractor for YtExtractor {
         Ok(unique_clients)
     }
 
+    fn extract_formats(
+        &self,
+        player_responses: Vec<HashMap<String, Value>>,
+    ) -> Result<Vec<YtStream>> {
+        let mut streams: Vec<YtStream> = vec![];
+
+        for player_response in &player_responses {
+            let streaming_formats = player_response.get("streamingData").unwrap_or_default();
+
+            if streaming_formats.is_null() {
+                continue;
+            }
+
+            let mut all_formats = Vec::new();
+
+            if let Some(streaming_data) = player_response.get("streamingData") {
+                if let Some(formats) = streaming_data.get("formats").and_then(|v| v.as_array()) {
+                    all_formats.extend(formats.clone());
+                }
+                if let Some(adaptive_formats) = streaming_data
+                    .get("adaptiveFormats")
+                    .and_then(|v| v.as_array())
+                {
+                    all_formats.extend(adaptive_formats.clone());
+                }
+            }
+
+            for fmt in all_formats {
+                let target_duration_sec = fmt.get("targetDurationSec");
+
+                // Skip livestream.
+                if target_duration_sec.is_some() {
+                    continue;
+                }
+
+                let itag = fmt
+                    .get("itag")
+                    .unwrap_or_default()
+                    .as_str()
+                    .and_then(|s| Some(s.to_string()));
+
+                let mut quality = fmt
+                    .get("quality")
+                    .and_then(|s| Some(s.as_str().unwrap_or_default().to_string()));
+
+                if quality.clone().unwrap_or_default() == "tiny" || quality.is_none() {
+                    let audio_quality = fmt
+                        .get("audioQuality")
+                        .unwrap_or_default()
+                        .as_str()
+                        .unwrap_or_default()
+                        .to_string();
+                    quality = Some(audio_quality);
+                }
+
+                // The 3gp format (17) in android client has a quality of "small", but is actually worse than other formats.
+                if itag.clone().unwrap_or_default() == "17" {
+                    quality = Some("tiny".to_string());
+                }
+
+                let mut stream_source = None;
+
+                if let Some(fmt_url) = fmt.get("url").clone() {
+                    stream_source = Some(YtStreamSource::URL(
+                        fmt_url.as_str().unwrap_or_default().to_string(),
+                    ));
+                }
+
+                if let Some(sc) = fmt.get("signatureCipher").unwrap_or_default().as_str() {
+                    stream_source = Some(YtStreamSource::Signature(sc.to_string()));
+                }
+
+                let Some(src) = stream_source else {
+                    continue;
+                };
+
+                let tbr = fmt
+                    .get("averageBitrate")
+                    .or_else(|| fmt.get("bitrate"))
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(1000 as f64);
+
+                let yt_stream = YtStream::new(
+                    fmt.get("audioSampleRate").and_then(|v| v.as_u64()),
+                    fmt.get("contentLength")
+                        .and_then(|v| v.as_str().and_then(|s| s.parse().ok())),
+                    itag,
+                    quality.and_then(|s| Some(s.to_lowercase())),
+                    src,
+                    tbr,
+                );
+
+                streams.push(yt_stream);
+            }
+        }
+
+        Ok(streams)
+    }
+
     async fn initial_extract(
         &mut self,
-        url: &str,
-        smuggled_data: HashMap<String, String>,
         webpage_url: &str,
         webpage_client: &YtClient,
         video_id: &VideoId,
-    ) -> Result<InitialExtractInfo> {
+    ) -> Result<Vec<HashMap<String, Value>>> {
         let webpage = self
             .download_webpage(webpage_url, webpage_client, video_id)
             .await?;
@@ -231,25 +308,25 @@ impl InfoExtractor for YtExtractor {
             .await?;
 
         let is_premium_subscriber = self.is_premium_subscriber(&initial_data)?;
-        let clients = self.get_clients(url, &smuggled_data, is_premium_subscriber)?;
-        let (player_responses, player_url) = self
-            .extract_player_responses(
-                &clients,
-                video_id,
-                &webpage,
-                webpage_client,
-                &webpage_ytcfg,
-                is_premium_subscriber,
-            )
+        let clients = self.get_clients(is_premium_subscriber)?;
+        let player_responses = self
+            .extract_player_responses(&clients, video_id, &webpage, webpage_client, &webpage_ytcfg)
             .await?;
 
-        Ok(InitialExtractInfo {
-            webpage,
-            webpage_ytcfg,
-            initial_data,
-            is_premium_subscriber,
-            player_responses,
-            player_url,
-        })
+        Ok(player_responses)
+    }
+
+    async fn extract_streams(&mut self, video_id: &VideoId) -> Result<()> {
+        // yt-dlp snippet: self.http_scheme() + "://"
+        let webpage_url = "https://www.youtube.com/watch";
+        let initial_extracted_data = self
+            .initial_extract(webpage_url, &YtClient::Web, video_id)
+            .await?;
+
+        let formats = self.extract_formats(initial_extracted_data)?;
+
+        println!("{:#?}", formats);
+
+        Ok(())
     }
 }

@@ -15,12 +15,6 @@ use crate::extractor::{
 };
 
 pub trait ExtractorDownloadHandle {
-    async fn download_direct_webpage(
-        &self,
-        webpage_url: &str,
-        webpage_client: &YtClient,
-        video_id: &VideoId,
-    ) -> Result<String>;
     async fn download_initial_data(
         &self,
         video_id: &VideoId,
@@ -97,7 +91,7 @@ impl ExtractorDownloadHandle for YtExtractor {
         Ok(None)
     }
 
-    async fn download_direct_webpage(
+    async fn download_webpage(
         &self,
         webpage_url: &str,
         webpage_client: &YtClient,
@@ -108,18 +102,6 @@ impl ExtractorDownloadHandle for YtExtractor {
             .await
     }
 
-    async fn download_webpage(
-        &self,
-        webpage_url: &str,
-        webpage_client: &YtClient,
-        video_id: &VideoId,
-    ) -> Result<String> {
-        let formatted_url = Url::parse(webpage_url)?.join("watch")?;
-        self.download_initial_webpage(formatted_url, webpage_client, video_id)
-            .await
-    }
-
-    // ! DOES NOT YET IMPLEMENT PLAYER PARAMS
     async fn download_initial_webpage(
         &self,
         webpage_url: Url,
