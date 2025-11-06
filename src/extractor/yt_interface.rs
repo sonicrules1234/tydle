@@ -6,7 +6,7 @@ use serde_json::Value;
 
 #[derive(Debug)]
 pub enum YtEndpoint {
-    Browse,
+    // Browse,
     Player,
     Next,
 }
@@ -14,7 +14,7 @@ pub enum YtEndpoint {
 impl YtEndpoint {
     pub fn as_str(&self) -> &'static str {
         match self {
-            Self::Browse => "browse",
+            // Self::Browse => "browse",
             Self::Player => "player",
             Self::Next => "next",
         }
@@ -94,7 +94,7 @@ pub const DEFAULT_PLAYER_JS_VERSION: &str = "actual";
 pub const DEFAULT_PLAYER_JS_VARIANT: &str = "main";
 
 pub const PLAYER_JS_MAIN_VARIANT: &str = "player_ias.vflset/en_US/base.js";
-pub const PLAYER_JS_INVERSE_MAIN_VARIANT: &str = "main";
+// pub const PLAYER_JS_INVERSE_MAIN_VARIANT: &str = "main";
 
 // pub static PLAYER_JS_VARIANT_MAP: Lazy<HashMap<&str, &str>> = Lazy::new(|| {
 //     let mut m = HashMap::new();

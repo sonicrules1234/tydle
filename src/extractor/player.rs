@@ -1,4 +1,7 @@
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use anyhow::{Result, anyhow};
 use fancy_regex::Regex;
@@ -20,6 +23,8 @@ use crate::extractor::{
 };
 
 pub trait ExtractorPlayerHandle {
+    fn is_unplayable(&self, player_response: &HashMap<String, Value>) -> bool;
+    fn is_age_gated(&self, player_response: &HashMap<String, Value>) -> bool;
     fn generate_player_context(&self, sts: Option<i64>) -> HashMap<String, Value>;
     fn get_player_id_and_path(&self, player_url: &String) -> Result<(String, String)>;
     async fn load_player(&mut self, video_id: &VideoId, player_url: String) -> Result<String>;
@@ -59,7 +64,7 @@ pub trait ExtractorPlayerHandle {
         webpage_client: &YtClient,
         webpage_ytcfg: &HashMap<String, Value>,
         is_premium_subscriber: bool,
-    ) -> Result<()>;
+    ) -> Result<(Vec<HashMap<String, Value>>, Option<String>)>;
 }
 
 impl ExtractorPlayerHandle for YtExtractor {
@@ -135,6 +140,61 @@ impl ExtractorPlayerHandle for YtExtractor {
         }
 
         None
+    }
+
+    fn is_age_gated(&self, player_response: &HashMap<String, Value>) -> bool {
+        if player_response
+            .get("playabilityStatus")
+            .and_then(|ps| ps.get("desktopLegacyAgeGateReason"))
+            .is_some()
+        {
+            return true;
+        }
+
+        let reasons_array: Vec<Value> = player_response
+            .get("playabilityStatus")
+            .and_then(|ps| ps.as_object())
+            .and_then(|o| o.get("status"))
+            .and_then(|s| s.as_object())
+            .and_then(|s| s.get("reason"))
+            .and_then(|r| r.as_array())
+            .cloned()
+            .unwrap_or_else(|| vec![]);
+
+        let reasons: Vec<&str> = reasons_array
+            .iter()
+            .map(|x| x.as_str().unwrap_or_default())
+            .collect();
+
+        const AGE_GATE_REASONS: [&str; 5] = [
+            "confirm your age",
+            "age-restricted",
+            "inappropriate",
+            "age_verification_required",
+            "age_check_required",
+        ];
+
+        for expected in AGE_GATE_REASONS {
+            for reason in &reasons {
+                if reason.contains(expected) {
+                    return true;
+                }
+            }
+        }
+
+        false
+    }
+
+    fn is_unplayable(&self, player_response: &HashMap<String, Value>) -> bool {
+        if let Some(status) = player_response
+            .get("playabilityStatus")
+            .and_then(|ps| ps.get("status"))
+            .and_then(|s| s.as_str())
+        {
+            return status == "UNPLAYABLE";
+        }
+
+        false
     }
 
     fn get_player_id_and_path(&self, player_url: &String) -> Result<(String, String)> {
@@ -289,7 +349,7 @@ impl ExtractorPlayerHandle for YtExtractor {
             )
             .await?;
 
-        Ok(HashMap::new())
+        Ok(player_response)
     }
 
     async fn extract_player_responses(
@@ -300,10 +360,12 @@ impl ExtractorPlayerHandle for YtExtractor {
         webpage_client: &YtClient,
         webpage_ytcfg: &HashMap<String, Value>,
         is_premium_subscriber: bool,
-    ) -> Result<()> {
+    ) -> Result<(Vec<HashMap<String, Value>>, Option<String>)> {
         let initial_pr = self.search_json(r"ytInitialPlayerResponse\s*=", &webpage, None, None)?;
-        let mut prs: Vec<&HashMap<String, Value>> = vec![];
-        let mut deprioritized_prs: Vec<&HashMap<String, Value>> = vec![];
+        let mut prs: Vec<HashMap<String, Value>> = vec![];
+
+        let mut init_pr_copy = initial_pr.clone();
+        init_pr_copy.insert("streamingData".into(), Value::Null);
 
         if !initial_pr.is_empty()
             && self
@@ -313,9 +375,7 @@ impl ExtractorPlayerHandle for YtExtractor {
         {
             // Android player_response does not have microFormats which are needed for extraction of some data.
             // So we return the initial_pr with formats stripped out even if not requested by the user.
-            let mut init_pr_copy = initial_pr.clone();
-            init_pr_copy.insert("streamingData".into(), Value::Null);
-            prs.push(&init_pr_copy);
+            prs.push(init_pr_copy);
         }
 
         let mut actual_clients = clients.clone();
@@ -349,12 +409,6 @@ impl ExtractorPlayerHandle for YtExtractor {
                 player_url = self.download_player_url(video_id).await?;
                 tried_iframe_fallback = true;
             }
-
-            let pr: Option<HashMap<String, Value>> = if client == webpage_client.as_str() {
-                Some(initial_pr.clone())
-            } else {
-                None
-            };
 
             if visitor_data.is_none() {
                 visitor_data =
@@ -405,7 +459,7 @@ impl ExtractorPlayerHandle for YtExtractor {
 
             let player_po_token: Option<String> = None;
 
-            let extracted_player_response = self
+            let player_response = self
                 .extract_player_response(
                     &popped_client,
                     video_id,
@@ -422,12 +476,55 @@ impl ExtractorPlayerHandle for YtExtractor {
                     player_po_token,
                 )
                 .await?;
+
+            if let Some(invalid_pr_id) = self.invalid_player_response(&player_response, video_id) {
+                println!(
+                    "[WARN] Skipped {}. Received invalid player response for video with ID \"{}\", got {} instead.",
+                    client,
+                    video_id.as_str(),
+                    invalid_pr_id
+                );
+                continue;
+            }
+
+            if !player_response.is_empty() {
+                prs.push(player_response.clone());
+            }
+
+            // web_embedded can work around age-gate and age-verification for some embeddable videos.
+            if self.is_age_gated(&player_response) && variant != "web_embedded" {
+                actual_clients.push(YtClient::WebEmbedded);
+            }
+
+            // Unauthenticated users will only get web_embedded client formats if age-gated.
+            if self.is_age_gated(&player_response) && !self.is_authenticated()? {
+                println!(
+                    "[WARN] Skipping client \"{}\" since the video is age-restricted and unavailable without authentication.",
+                    client
+                );
+                continue;
+            }
+
+            let embedding_is_disabled =
+                variant == "web_embedded" && self.is_unplayable(&player_response);
+
+            if self.is_authenticated()?
+                && (self.is_age_gated(&player_response) || embedding_is_disabled)
+            {
+                println!(
+                    "[WARN] Skipping client \"{}\" since the video is age-restricted and YouTube is requiring account verification.",
+                    client
+                );
+                actual_clients.push(YtClient::TvEmbedded);
+                actual_clients.push(YtClient::WebCreator);
+                continue;
+            }
         }
 
-        // println!("{:?}", webpage_ytcfg);
-        // println!("{}", webpage);
-        // println!("{:#?}", initial_pr);
+        if prs.is_empty() {
+            return Err(anyhow!("Failed to extract any player response."));
+        }
 
-        Ok(())
+        Ok((prs, player_url))
     }
 }

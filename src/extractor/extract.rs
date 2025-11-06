@@ -27,6 +27,15 @@ pub struct YtExtractor {
     // pub x_forwarded_for_ip: Option<&'static str>,
 }
 
+pub struct InitialExtractInfo {
+    pub webpage: String,
+    pub webpage_ytcfg: HashMap<String, Value>,
+    pub initial_data: HashMap<String, Value>,
+    pub is_premium_subscriber: bool,
+    pub player_responses: Vec<HashMap<String, Value>>,
+    pub player_url: Option<String>,
+}
+
 pub trait InfoExtractor {
     fn generate_checkok_params(&self) -> HashMap<String, Value>;
     fn is_music_url(&self, url: &str) -> Result<bool>;
@@ -46,7 +55,7 @@ pub trait InfoExtractor {
         webpage_url: &str,
         webpage_client: &YtClient,
         video_id: &VideoId,
-    ) -> Result<()>;
+    ) -> Result<InitialExtractInfo>;
 }
 
 impl YtExtractor {
@@ -205,7 +214,7 @@ impl InfoExtractor for YtExtractor {
         webpage_url: &str,
         webpage_client: &YtClient,
         video_id: &VideoId,
-    ) -> Result<()> {
+    ) -> Result<InitialExtractInfo> {
         let webpage = self
             .download_webpage(webpage_url, webpage_client, video_id)
             .await?;
@@ -223,7 +232,7 @@ impl InfoExtractor for YtExtractor {
 
         let is_premium_subscriber = self.is_premium_subscriber(&initial_data)?;
         let clients = self.get_clients(url, &smuggled_data, is_premium_subscriber)?;
-        let player_response = self
+        let (player_responses, player_url) = self
             .extract_player_responses(
                 &clients,
                 video_id,
@@ -234,6 +243,13 @@ impl InfoExtractor for YtExtractor {
             )
             .await?;
 
-        Ok(player_response)
+        Ok(InitialExtractInfo {
+            webpage,
+            webpage_ytcfg,
+            initial_data,
+            is_premium_subscriber,
+            player_responses,
+            player_url,
+        })
     }
 }

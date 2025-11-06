@@ -93,7 +93,7 @@ impl ExtractorCookieHandle for YtExtractor {
         origin: String,
         additional_parts: HashMap<&str, String>,
     ) -> Result<String> {
-        let now: SystemTime = SystemTime::now();
+        let now = SystemTime::now();
         let epoch_duration = now.duration_since(UNIX_EPOCH)?;
         let time_stamp = epoch_duration.as_secs_f64().round().to_string();
 
