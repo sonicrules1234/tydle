@@ -4,8 +4,8 @@ use serde::Serialize;
 use serde_json::Value;
 use std::collections::HashMap;
 
-use crate::extractor::{
-    token_policy::{
+use crate::{
+    extractor::token_policy::{
         GvsPoTokenPolicy, PlayerPoTokenPolicy, StreamingProtocol, SubsPoTokenPolicy,
         WEB_PO_TOKEN_POLICIES, create_default_gvs_po_token_policy,
     },

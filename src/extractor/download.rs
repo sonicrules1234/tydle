@@ -5,13 +5,15 @@ use fancy_regex::Regex;
 use reqwest::Url;
 use serde_json::Value;
 
-use crate::extractor::{
-    api::ExtractorApiHandle,
-    client::INNERTUBE_CLIENTS,
-    extract::{InfoExtractor, YtExtractor},
-    player::ExtractorPlayerHandle,
+use crate::{
+    extractor::{
+        api::ExtractorApiHandle,
+        client::INNERTUBE_CLIENTS,
+        extract::{InfoExtractor, YtExtractor},
+        player::ExtractorPlayerHandle,
+        ytcfg::ExtractorYtCfgHandle,
+    },
     yt_interface::{PlayerIdentifier, VideoId, YtClient, YtEndpoint},
-    ytcfg::ExtractorYtCfgHandle,
 };
 
 pub trait ExtractorDownloadHandle {

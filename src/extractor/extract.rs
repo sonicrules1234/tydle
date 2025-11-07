@@ -8,14 +8,12 @@ use fancy_regex::Regex;
 use reqwest::cookie;
 use serde_json::Value;
 
-use crate::extractor::{
-    auth::ExtractorAuthHandle,
-    client::INNERTUBE_CLIENTS,
-    download::ExtractorDownloadHandle,
-    json::ExtractorJsonHandle,
-    player::ExtractorPlayerHandle,
+use crate::{
+    extractor::{
+        auth::ExtractorAuthHandle, client::INNERTUBE_CLIENTS, download::ExtractorDownloadHandle,
+        json::ExtractorJsonHandle, player::ExtractorPlayerHandle, ytcfg::ExtractorYtCfgHandle,
+    },
     yt_interface::{VideoId, YtClient, YtStream, YtStreamSource},
-    ytcfg::ExtractorYtCfgHandle,
 };
 
 pub struct YtExtractor {

@@ -4,12 +4,12 @@ use anyhow::Result;
 use reqwest::Url;
 use serde_json::{Value, json};
 
-use crate::extractor::{
-    auth::ExtractorAuthHandle,
-    client::INNERTUBE_CLIENTS,
-    extract::YtExtractor,
+use crate::{
+    extractor::{
+        auth::ExtractorAuthHandle, client::INNERTUBE_CLIENTS, extract::YtExtractor,
+        ytcfg::ExtractorYtCfgHandle,
+    },
     yt_interface::{DEFAULT_YT_CLIENT, YtClient, YtEndpoint},
-    ytcfg::ExtractorYtCfgHandle,
 };
 
 pub trait ExtractorApiHandle {

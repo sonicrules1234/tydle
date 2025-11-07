@@ -11,4 +11,3 @@ mod utils;
 mod ytcfg;
 
 pub mod extract;
-pub mod yt_interface;

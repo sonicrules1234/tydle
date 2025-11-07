@@ -4,11 +4,13 @@ use anyhow::{Result, anyhow};
 use reqwest::Url;
 use serde_json::Value;
 
-use crate::extractor::{
-    cookies::ExtractorCookieHandle,
-    extract::YtExtractor,
-    json::ExtractorJsonHandle,
-    utils::{convert_to_query_string, parse_query_string},
+use crate::{
+    extractor::{
+        cookies::ExtractorCookieHandle,
+        extract::YtExtractor,
+        json::ExtractorJsonHandle,
+        utils::{convert_to_query_string, parse_query_string},
+    },
     yt_interface::{PREFERRED_LOCALE, YT_URL},
 };
 

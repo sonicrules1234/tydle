@@ -3,10 +3,12 @@ use std::collections::HashMap;
 use anyhow::Result;
 use serde_json::{Map, Value};
 
-use crate::extractor::{
-    auth::ExtractorAuthHandle,
-    client::{INNERTUBE_CLIENTS, InnerTubeClient},
-    extract::YtExtractor,
+use crate::{
+    extractor::{
+        auth::ExtractorAuthHandle,
+        client::{INNERTUBE_CLIENTS, InnerTubeClient},
+        extract::YtExtractor,
+    },
     yt_interface::{DEFAULT_YT_CLIENT, PREFERRED_LOCALE, YtClient},
 };
 

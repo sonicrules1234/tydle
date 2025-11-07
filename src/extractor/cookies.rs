@@ -7,7 +7,7 @@ use anyhow::Result;
 use reqwest::{Url, cookie::CookieStore};
 use sha1::{Digest, Sha1};
 
-use crate::extractor::{extract::YtExtractor, yt_interface::YT_URL};
+use crate::{extractor::extract::YtExtractor, yt_interface::YT_URL};
 
 pub struct SidCookies {
     pub yt_sapisid: Option<String>,

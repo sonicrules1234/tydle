@@ -1,7 +1,7 @@
 use anyhow::Result;
 
-use crate::extractor::{
-    extract::{InfoExtractor, YtExtractor},
+use crate::{
+    extractor::extract::{InfoExtractor, YtExtractor},
     yt_interface::{VideoId, YtStream},
 };
 

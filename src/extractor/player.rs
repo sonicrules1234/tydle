@@ -5,17 +5,19 @@ use fancy_regex::Regex;
 use reqwest::Url;
 use serde_json::{Value, json};
 
-use crate::extractor::{
-    api::ExtractorApiHandle,
-    auth::ExtractorAuthHandle,
-    cache::ExtractorCacheHandle,
-    download::ExtractorDownloadHandle,
-    extract::{InfoExtractor, YtExtractor},
-    json::ExtractorJsonHandle,
+use crate::{
+    extractor::{
+        api::ExtractorApiHandle,
+        auth::ExtractorAuthHandle,
+        cache::ExtractorCacheHandle,
+        download::ExtractorDownloadHandle,
+        extract::{InfoExtractor, YtExtractor},
+        json::ExtractorJsonHandle,
+        ytcfg::ExtractorYtCfgHandle,
+    },
     yt_interface::{
         PLAYER_JS_MAIN_VARIANT, PlayerIdentifier, VideoId, YT_URL, YtClient, YtEndpoint,
     },
-    ytcfg::ExtractorYtCfgHandle,
 };
 
 pub trait ExtractorPlayerHandle {
