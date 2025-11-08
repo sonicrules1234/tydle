@@ -2,14 +2,13 @@ use std::collections::HashMap;
 
 use anyhow::{Result, anyhow};
 use fancy_regex::Regex;
-use reqwest::Url;
 use serde_json::{Value, json};
 
 use crate::{
+    cache::{CacheAccess, PlayerCacheHandle},
     extractor::{
         api::ExtractorApiHandle,
         auth::ExtractorAuthHandle,
-        cache::ExtractorCacheHandle,
         download::ExtractorDownloadHandle,
         extract::{InfoExtractor, YtExtractor},
         json::ExtractorJsonHandle,
@@ -24,7 +23,6 @@ pub trait ExtractorPlayerHandle {
     fn is_unplayable(&self, player_response: &HashMap<String, Value>) -> bool;
     fn is_age_gated(&self, player_response: &HashMap<String, Value>) -> bool;
     fn generate_player_context(&self, sts: Option<i64>) -> HashMap<String, Value>;
-    fn get_player_id_and_path(&self, player_url: &String) -> Result<(String, String)>;
     async fn load_player(&mut self, video_id: &VideoId, player_url: String) -> Result<String>;
     /// Extract `signatureTimestamp` (sts)
     /// Required to tell API what sig/player version is in use.
@@ -35,7 +33,6 @@ pub trait ExtractorPlayerHandle {
         ytcfg: &HashMap<String, Value>,
     ) -> Result<Option<i64>>;
     fn construct_player_url(&self, player_identifier: PlayerIdentifier) -> Result<String>;
-    fn extract_player_info(&self, player_url: &String) -> Result<String>;
     fn get_player_url(&self, ytcfgs: &[&HashMap<String, Value>]) -> Result<String>;
     fn invalid_player_response(
         &self,
@@ -64,25 +61,6 @@ pub trait ExtractorPlayerHandle {
 }
 
 impl ExtractorPlayerHandle for YtExtractor {
-    fn extract_player_info(&self, player_url: &String) -> Result<String> {
-        const PLAYER_INFO_RE: [&str; 3] = [
-            r"/s/player/(?P<id>[a-zA-Z0-9_-]{8,})/(?:tv-)?player",
-            r"/(?P<id>[a-zA-Z0-9_-]{8,})/player(?:_ias\.vflset(?:/[a-zA-Z]{2,3}_[a-zA-Z]{2,3})?|-plasma-ias-(?:phone|tablet)-[a-z]{2}_[A-Z]{2}\.vflset)/base\.js$",
-            r"\b(?P<id>vfl[a-zA-Z0-9_-]+)\b.*?\.js$",
-        ];
-
-        for player_info_re in PLAYER_INFO_RE {
-            let re = Regex::new(player_info_re)?;
-            if let Ok(Some(caps)) = re.captures(player_url) {
-                if let Some(matched) = caps.name("id") {
-                    return Ok(matched.as_str().to_string());
-                }
-            }
-        }
-
-        Err(anyhow!("Cannot identify player: {}", player_url))
-    }
-
     fn construct_player_url(&self, player_identifier: PlayerIdentifier) -> Result<String> {
         match player_identifier {
             PlayerIdentifier::PlayerUrl(player_url) => {
@@ -193,17 +171,10 @@ impl ExtractorPlayerHandle for YtExtractor {
         false
     }
 
-    fn get_player_id_and_path(&self, player_url: &String) -> Result<(String, String)> {
-        let player_id = self.extract_player_info(player_url)?;
-        let player_path = Url::parse(player_url)?.path().to_string();
-
-        Ok((player_id, player_path))
-    }
-
     async fn load_player(&mut self, video_id: &VideoId, player_url: String) -> Result<String> {
-        let player_js_key = self.player_js_cache_key(&player_url)?;
+        let player_js_key = self.player_cache.player_js_cache_key(&player_url)?;
 
-        if self.code_cache.contains_key(&player_js_key) {
+        if self.code_cache.contains(&player_js_key) {
             return Ok(self.code_cache.get(&player_js_key).unwrap().clone());
         }
 
@@ -212,7 +183,7 @@ impl ExtractorPlayerHandle for YtExtractor {
             .await?;
 
         if !code.is_empty() {
-            self.code_cache.insert(player_js_key, code.clone());
+            self.code_cache.add(player_js_key, code.clone());
         }
 
         Ok(code)
@@ -228,7 +199,10 @@ impl ExtractorPlayerHandle for YtExtractor {
             return Ok(sts.as_i64());
         }
 
-        if let Some(sts) = self.load_player_data_from_cache("sts", player_url.clone())? {
+        if let Some(sts) = self
+            .player_cache
+            .load_player_data_from_cache("sts", player_url.clone())?
+        {
             return Ok(Some(sts.parse::<i64>()?));
         }
 

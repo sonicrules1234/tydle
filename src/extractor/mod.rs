@@ -1,6 +1,5 @@
 mod api;
 mod auth;
-mod cache;
 mod client;
 mod cookies;
 mod download;

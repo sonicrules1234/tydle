@@ -8,6 +8,7 @@ use fancy_regex::Regex;
 use serde_json::Value;
 
 use crate::{
+    cache::CacheStore,
     cookies::CookieJar,
     extractor::{
         auth::ExtractorAuthHandle, client::INNERTUBE_CLIENTS, download::ExtractorDownloadHandle,
@@ -19,10 +20,9 @@ use crate::{
 pub struct YtExtractor {
     pub passed_auth_cookies: Cell<bool>,
     pub http_client: reqwest::Client,
-    // #[cfg(not(target_arch = "wasm32"))]
     pub cookie_jar: CookieJar,
-    pub code_cache: HashMap<String, String>,
-    pub player_cache: HashMap<(String, String), String>,
+    pub player_cache: CacheStore<(String, String)>,
+    pub code_cache: CacheStore,
 }
 
 pub trait InfoExtractor {
@@ -49,10 +49,9 @@ impl YtExtractor {
         let extractor = Self {
             passed_auth_cookies: Cell::new(false),
             http_client: reqwest::Client::new(),
-            // #[cfg(not(target_arch = "wasm32"))]
             cookie_jar: CookieJar::new(),
-            code_cache: HashMap::new(),
-            player_cache: HashMap::new(),
+            player_cache: CacheStore::new(),
+            code_cache: CacheStore::new(),
             // x_forwarded_for_ip: None,
         };
 
