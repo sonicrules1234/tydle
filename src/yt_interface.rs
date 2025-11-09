@@ -210,3 +210,17 @@ impl YtStream {
         }
     }
 }
+
+pub struct YtStreamResponse {
+    pub player_url: String,
+    pub streams: Vec<YtStream>,
+}
+
+impl YtStreamResponse {
+    pub fn new(player_url: String, streams: Vec<YtStream>) -> Self {
+        Self {
+            player_url,
+            streams,
+        }
+    }
+}

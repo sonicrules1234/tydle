@@ -1,11 +1,11 @@
-use std::{cell::RefCell, collections::HashMap, hash::Hash};
+use std::{collections::HashMap, hash::Hash, sync::RwLock};
 
 use anyhow::{Result, anyhow};
 use fancy_regex::Regex;
 use url::Url;
 
 pub struct CacheStore<T = String> {
-    cache: RefCell<HashMap<T, String>>,
+    cache: RwLock<HashMap<T, String>>,
 }
 
 impl CacheStore {
@@ -17,9 +17,9 @@ impl CacheStore {
 }
 
 pub trait CacheAccess<T> {
-    fn add(&self, key: T, value: String);
-    fn contains(&self, key: &T) -> bool;
-    fn get(&self, key: &T) -> Option<String>;
+    fn add(&self, key: T, value: String) -> Result<()>;
+    fn contains(&self, key: &T) -> Result<bool>;
+    fn get(&self, key: &T) -> Result<Option<String>>;
 }
 
 pub trait PlayerCacheHandle {
@@ -32,27 +32,38 @@ pub trait PlayerCacheHandle {
     //     data: String,
     // ) -> Result<()>;
     fn player_js_cache_key(&self, player_url: &String) -> Result<String>;
-    fn load_player_data_from_cache(
-        &mut self,
-        name: &str,
-        player_url: String,
-    ) -> Result<Option<String>>;
+    fn load_player_data_from_cache(&self, name: &str, player_url: String)
+    -> Result<Option<String>>;
 }
 
 impl<T> CacheAccess<T> for CacheStore<T>
 where
     T: Eq + Hash,
 {
-    fn get(&self, key: &T) -> Option<String> {
-        self.cache.borrow().get(key).cloned()
+    fn get(&self, key: &T) -> Result<Option<String>> {
+        Ok(self
+            .cache
+            .read()
+            .map_err(|e| anyhow!(e.to_string()))?
+            .get(key)
+            .cloned())
     }
 
-    fn add(&self, key: T, value: String) {
-        self.cache.borrow_mut().insert(key, value);
+    fn add(&self, key: T, value: String) -> Result<()> {
+        self.cache
+            .write()
+            .map_err(|e| anyhow!(e.to_string()))?
+            .insert(key, value);
+
+        Ok(())
     }
 
-    fn contains(&self, key: &T) -> bool {
-        self.cache.borrow().contains_key(key)
+    fn contains(&self, key: &T) -> Result<bool> {
+        Ok(self
+            .cache
+            .read()
+            .map_err(|e| anyhow!(e.to_string()))?
+            .contains_key(key))
     }
 }
 
@@ -95,7 +106,7 @@ impl PlayerCacheHandle for CacheStore<(String, String)> {
     }
 
     fn load_player_data_from_cache(
-        &mut self,
+        &self,
         name: &str,
         player_url: String,
     ) -> Result<Option<String>> {
@@ -104,7 +115,12 @@ impl PlayerCacheHandle for CacheStore<(String, String)> {
             self.player_js_cache_key(&player_url)?,
         );
 
-        if let Some(data) = self.cache.borrow().get(&cache_id) {
+        if let Some(data) = self
+            .cache
+            .read()
+            .map_err(|e| anyhow!(e.to_string()))?
+            .get(&cache_id)
+        {
             return Ok(Some(data.clone()));
         }
 

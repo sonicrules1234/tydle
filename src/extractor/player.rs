@@ -57,7 +57,7 @@ pub trait ExtractorPlayerHandle {
         webpage: &String,
         webpage_client: &YtClient,
         webpage_ytcfg: &HashMap<String, Value>,
-    ) -> Result<Vec<HashMap<String, Value>>>;
+    ) -> Result<(Vec<HashMap<String, Value>>, String)>;
 }
 
 impl ExtractorPlayerHandle for YtExtractor {
@@ -174,8 +174,8 @@ impl ExtractorPlayerHandle for YtExtractor {
     async fn load_player(&mut self, video_id: &VideoId, player_url: String) -> Result<String> {
         let player_js_key = self.player_cache.player_js_cache_key(&player_url)?;
 
-        if self.code_cache.contains(&player_js_key) {
-            return Ok(self.code_cache.get(&player_js_key).unwrap().clone());
+        if self.code_cache.contains(&player_js_key)? {
+            return Ok(self.code_cache.get(&player_js_key)?.unwrap().clone());
         }
 
         let code = self
@@ -183,7 +183,7 @@ impl ExtractorPlayerHandle for YtExtractor {
             .await?;
 
         if !code.is_empty() {
-            self.code_cache.add(player_js_key, code.clone());
+            self.code_cache.add(player_js_key, code.clone())?;
         }
 
         Ok(code)
@@ -317,7 +317,7 @@ impl ExtractorPlayerHandle for YtExtractor {
         webpage: &String,
         webpage_client: &YtClient,
         webpage_ytcfg: &HashMap<String, Value>,
-    ) -> Result<Vec<HashMap<String, Value>>> {
+    ) -> Result<(Vec<HashMap<String, Value>>, String)> {
         let initial_pr = self.search_json(r"ytInitialPlayerResponse\s*=", &webpage, None, None)?;
         let mut prs: Vec<HashMap<String, Value>> = vec![];
 
@@ -474,6 +474,6 @@ impl ExtractorPlayerHandle for YtExtractor {
             return Err(anyhow!("Failed to extract any player response."));
         }
 
-        Ok(prs)
+        Ok((prs, player_url.unwrap_or_default()))
     }
 }

@@ -12,6 +12,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 anyhow = "1.0.100"
+deno_core = "0.311.0"
 fancy-regex = "0.16.2"
 once_cell = "1.21.3"
 phf = "0.13.1"

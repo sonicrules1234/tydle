@@ -1,19 +1,82 @@
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 
-use crate::{
-    extractor::extract::{InfoExtractor, YtExtractor},
-    yt_interface::{VideoId, YtStream},
+use std::pin::Pin;
+use std::{
+    future::Future,
+    sync::{Arc, Mutex},
 };
 
-pub struct Ty;
+use crate::cache::CacheStore;
+use crate::cipher::decipher::{SignatureDecipher, SignatureDecipherHandle};
+use crate::yt_interface::YtStreamResponse;
+use crate::{
+    extractor::extract::{InfoExtractor, YtExtractor},
+    yt_interface::VideoId,
+};
+
+pub struct Ty {
+    yt_extractor: Arc<Mutex<YtExtractor>>,
+    signature_decipher: Arc<Mutex<SignatureDecipher>>,
+}
 
 impl Ty {
-    pub async fn extract(video_id: &VideoId) -> Result<Vec<YtStream>> {
-        let mut yt_extractor = YtExtractor::new()?;
+    pub fn new() -> Result<Self> {
+        let player_cache = Arc::new(CacheStore::new());
+        let code_cache = Arc::new(CacheStore::new());
 
-        let streams = yt_extractor.extract_streams(video_id).await?;
+        let yt_extractor = YtExtractor::new(player_cache.clone(), code_cache.clone())?;
+        let signature_decipher = SignatureDecipher::new(player_cache, code_cache);
 
-        Ok(streams)
+        Ok(Self {
+            yt_extractor: Arc::new(Mutex::new(yt_extractor)),
+            signature_decipher: Arc::new(Mutex::new(signature_decipher)),
+        })
+    }
+}
+
+pub trait Extract {
+    type DecipherFut<'a>: Future<Output = Result<String>> + 'a
+    where
+        Self: 'a;
+
+    fn decipher_stream_signature<'a>(
+        &'a self,
+        signature: String,
+        player_url: String,
+    ) -> Self::DecipherFut<'a>;
+    type ExtractFut<'a>: Future<Output = Result<YtStreamResponse>> + 'a
+    where
+        Self: 'a;
+    /// Extract playable streams from YouTube and get their source either as a `Signature` or an `URL`
+    fn get_streams<'a>(&'a self, video_id: &'a VideoId) -> Self::ExtractFut<'a>;
+}
+
+impl Extract for Ty {
+    type DecipherFut<'a> = Pin<Box<dyn Future<Output = Result<String>> + 'a>>;
+    type ExtractFut<'a> = Pin<Box<dyn Future<Output = Result<YtStreamResponse>> + 'a>>;
+
+    fn get_streams<'a>(&'a self, video_id: &'a VideoId) -> Self::ExtractFut<'a> {
+        Box::pin(async move {
+            let mut extractor = self
+                .yt_extractor
+                .lock()
+                .map_err(|e| anyhow!(e.to_string()))?;
+            extractor.extract_streams(video_id).await
+        })
+    }
+
+    fn decipher_stream_signature<'a>(
+        &'a self,
+        signature: String,
+        player_url: String,
+    ) -> Self::DecipherFut<'a> {
+        Box::pin(async move {
+            let signature_decipher = self
+                .signature_decipher
+                .lock()
+                .map_err(|e| anyhow!(e.to_string()))?;
+            signature_decipher.decipher(signature, player_url).await
+        })
     }
 }
 

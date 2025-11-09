@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::atomic::Ordering};
 
 use anyhow::{Result, anyhow};
 use serde_json::Value;
@@ -41,9 +41,9 @@ pub trait ExtractorAuthHandle {
 /// Handles Auth with cookies and user-set preferences.
 impl ExtractorAuthHandle for YtExtractor {
     fn initialize_cookie_auth(&self) -> Result<()> {
-        self.passed_auth_cookies.set(false);
+        self.passed_auth_cookies.store(false, Ordering::Relaxed);
         if self.has_auth_cookies()? {
-            self.passed_auth_cookies.set(true);
+            self.passed_auth_cookies.store(true, Ordering::Relaxed);
         }
 
         Ok(())

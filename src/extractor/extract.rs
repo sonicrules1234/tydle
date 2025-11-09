@@ -1,6 +1,6 @@
 use std::{
-    cell::Cell,
     collections::{HashMap, HashSet},
+    sync::{Arc, atomic::AtomicBool},
 };
 
 use anyhow::{Result, anyhow};
@@ -14,15 +14,15 @@ use crate::{
         auth::ExtractorAuthHandle, client::INNERTUBE_CLIENTS, download::ExtractorDownloadHandle,
         json::ExtractorJsonHandle, player::ExtractorPlayerHandle, ytcfg::ExtractorYtCfgHandle,
     },
-    yt_interface::{VideoId, YtClient, YtStream, YtStreamSource},
+    yt_interface::{VideoId, YtClient, YtStream, YtStreamResponse, YtStreamSource},
 };
 
 pub struct YtExtractor {
-    pub passed_auth_cookies: Cell<bool>,
+    pub passed_auth_cookies: AtomicBool,
     pub http_client: reqwest::Client,
     pub cookie_jar: CookieJar,
-    pub player_cache: CacheStore<(String, String)>,
-    pub code_cache: CacheStore,
+    pub player_cache: Arc<CacheStore<(String, String)>>,
+    pub code_cache: Arc<CacheStore>,
 }
 
 pub trait InfoExtractor {
@@ -30,7 +30,7 @@ pub trait InfoExtractor {
         &self,
         player_responses: Vec<HashMap<String, Value>>,
     ) -> Result<Vec<YtStream>>;
-    async fn extract_streams(&mut self, video_id: &VideoId) -> Result<Vec<YtStream>>;
+    async fn extract_streams(&mut self, video_id: &VideoId) -> Result<YtStreamResponse>;
     fn generate_checkok_params(&self) -> HashMap<String, Value>;
     fn is_premium_subscriber(&self, initial_data: &HashMap<String, Value>) -> Result<bool>;
     fn extract_ytcfg(&self, webpage_content: String) -> Result<HashMap<String, Value>>;
@@ -41,17 +41,20 @@ pub trait InfoExtractor {
         webpage_url: &str,
         webpage_client: &YtClient,
         video_id: &VideoId,
-    ) -> Result<Vec<HashMap<String, Value>>>;
+    ) -> Result<(Vec<HashMap<String, Value>>, String)>;
 }
 
 impl YtExtractor {
-    pub fn new() -> Result<Self> {
+    pub fn new(
+        player_cache: Arc<CacheStore<(String, String)>>,
+        code_cache: Arc<CacheStore>,
+    ) -> Result<Self> {
         let extractor = Self {
-            passed_auth_cookies: Cell::new(false),
+            passed_auth_cookies: AtomicBool::new(false),
             http_client: reqwest::Client::new(),
             cookie_jar: CookieJar::new(),
-            player_cache: CacheStore::new(),
-            code_cache: CacheStore::new(),
+            player_cache,
+            code_cache,
             // x_forwarded_for_ip: None,
         };
 
@@ -281,7 +284,7 @@ impl InfoExtractor for YtExtractor {
         webpage_url: &str,
         webpage_client: &YtClient,
         video_id: &VideoId,
-    ) -> Result<Vec<HashMap<String, Value>>> {
+    ) -> Result<(Vec<HashMap<String, Value>>, String)> {
         let webpage = self
             .download_webpage(webpage_url, webpage_client, video_id)
             .await?;
@@ -306,15 +309,16 @@ impl InfoExtractor for YtExtractor {
         Ok(player_responses)
     }
 
-    async fn extract_streams(&mut self, video_id: &VideoId) -> Result<Vec<YtStream>> {
+    async fn extract_streams(&mut self, video_id: &VideoId) -> Result<YtStreamResponse> {
         // yt-dlp snippet: self.http_scheme() + "://"
         let webpage_url = "https://www.youtube.com/watch";
-        let initial_extracted_data = self
+        let (initial_extracted_data, player_url) = self
             .initial_extract(webpage_url, &YtClient::Web, video_id)
             .await?;
 
         let formats = self.extract_formats(initial_extracted_data)?;
+        let stream_response = YtStreamResponse::new(player_url, formats);
 
-        Ok(formats)
+        Ok(stream_response)
     }
 }
