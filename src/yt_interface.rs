@@ -186,6 +186,7 @@ impl fmt::Display for VideoId {
     }
 }
 
+#[cfg_attr(target_arch = "wasm32", derive(serde::Serialize))]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct YtChannel {
     id: String,
@@ -211,12 +212,14 @@ impl YtChannel {
     }
 }
 
+#[cfg_attr(target_arch = "wasm32", derive(serde::Serialize))]
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum YtStreamSource {
     URL(String),
     Signature(String),
 }
 
+#[cfg_attr(target_arch = "wasm32", derive(serde::Serialize))]
 #[derive(Debug, Clone)]
 pub struct YtStream {
     pub asr: Option<u64>,
@@ -249,6 +252,7 @@ impl YtStream {
 
 pub type YtStreams = Vec<YtStream>;
 
+#[cfg_attr(target_arch = "wasm32", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct YtStreamList(YtStreams);
 
@@ -484,6 +488,7 @@ impl Filterable for YtStreamList {
     }
 }
 
+#[cfg_attr(target_arch = "wasm32", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct YtStreamResponse {
     pub player_url: String,
@@ -499,6 +504,7 @@ impl YtStreamResponse {
     }
 }
 
+#[cfg_attr(target_arch = "wasm32", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug)]
 pub struct YtManifest {
     pub extracted_manifest: Vec<HashMap<String, Value>>,
@@ -514,6 +520,7 @@ impl YtManifest {
     }
 }
 
+#[cfg_attr(target_arch = "wasm32", derive(serde::Serialize))]
 #[derive(Debug, Default)]
 pub enum YtMediaType {
     LiveStream,
@@ -522,6 +529,7 @@ pub enum YtMediaType {
     Video,
 }
 
+#[cfg_attr(target_arch = "wasm32", derive(serde::Serialize))]
 #[derive(Debug, Default)]
 pub enum YtAgeLimit {
     Adult,
@@ -529,6 +537,7 @@ pub enum YtAgeLimit {
     None,
 }
 
+#[cfg_attr(target_arch = "wasm32", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct YtThumbnail {
     pub url: String,
@@ -536,6 +545,7 @@ pub struct YtThumbnail {
     pub width: Option<u64>,
 }
 
+#[cfg_attr(target_arch = "wasm32", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct YtVideoInfo {
     pub title: String,

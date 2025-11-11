@@ -1,10 +1,11 @@
 use anyhow::{Result, anyhow};
-
 use std::pin::Pin;
 use std::{
     future::Future,
     sync::{Arc, Mutex},
 };
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::cache::CacheStore;
 use crate::cipher::decipher::{SignatureDecipher, SignatureDecipherHandle};
@@ -14,12 +15,14 @@ use crate::{
     yt_interface::VideoId,
 };
 
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 pub struct Tydle {
     yt_extractor: Arc<Mutex<YtExtractor>>,
     signature_decipher: Arc<Mutex<SignatureDecipher>>,
 }
 
 impl Tydle {
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn new() -> Result<Self> {
         let player_cache = Arc::new(CacheStore::new());
         let code_cache = Arc::new(CacheStore::new());
@@ -261,20 +264,104 @@ impl Extract for Tydle {
     }
 }
 
-// #[cfg(target_arch = "wasm32")]
-// use wasm_bindgen::{JsValue, prelude::*};
-// #[cfg(target_arch = "wasm32")]
-// use wasm_bindgen_futures::wasm_bindgen::prelude::*;
+#[cfg(target_arch = "wasm32")]
+mod wasm_api {
+    use super::*;
+    use serde_wasm_bindgen::{from_value, to_value as to_js_value};
+    use wasm_bindgen::JsValue;
 
-// #[cfg(target_arch = "wasm32")]
-// #[wasm_bindgen(js_name = "fetchYtStreams")]
-// pub async fn wasm_fetch_yt_streams(video_id: &str) -> JsValue {
-//     let Ok(video_id_parsed) = VideoId::new(video_id) else {
-//         panic!("Invalid Video ID.")
-//     };
+    #[wasm_bindgen]
+    impl Tydle {
+        #[wasm_bindgen(constructor)]
+        pub fn new() -> Result<Tydle, JsValue> {
+            let player_cache = Arc::new(CacheStore::new());
+            let code_cache = Arc::new(CacheStore::new());
 
-//     match Tydle::extract(&video_id_parsed).await {
-//         Ok(streams) => JsValue::from_str(""),
-//         Err(err) => panic!("{}", err),
-//     }
-// }
+            let yt_extractor = YtExtractor::new(player_cache.clone(), code_cache.clone())
+                .map_err(|e| JsValue::from_str(&e.to_string()))?;
+
+            let signature_decipher = SignatureDecipher::new(player_cache, code_cache);
+
+            Ok(Tydle {
+                yt_extractor: Arc::new(Mutex::new(yt_extractor)),
+                signature_decipher: Arc::new(Mutex::new(signature_decipher)),
+            })
+        }
+
+        #[wasm_bindgen(js_name = "fetchStreams")]
+        pub async fn fetch_streams(&self, video_id: String) -> Result<JsValue, JsValue> {
+            let id = VideoId::new(&video_id).map_err(|e| JsValue::from_str(&e.to_string()))?;
+
+            let res = self
+                .get_streams(&id)
+                .await
+                .map_err(|e| JsValue::from_str(&e.to_string()))?;
+            to_js_value(&res).map_err(|e| JsValue::from_str(&e.to_string()))
+        }
+
+        #[wasm_bindgen(js_name = "fetchVideoInfo")]
+        pub async fn fetch_video_info(&self, video_id: String) -> Result<JsValue, JsValue> {
+            let id = VideoId::new(&video_id).map_err(|e| JsValue::from_str(&e.to_string()))?;
+
+            let res = self
+                .get_video_info(&id)
+                .await
+                .map_err(|e| JsValue::from_str(&e.to_string()))?;
+            to_js_value(&res).map_err(|e| JsValue::from_str(&e.to_string()))
+        }
+
+        #[wasm_bindgen(js_name = "fetchVideoInfoFromManifest")]
+        pub async fn fetch_video_info_from_manifest(
+            &self,
+            manifest: JsValue,
+        ) -> Result<JsValue, JsValue> {
+            let manifest: YtManifest = from_value(manifest)
+                .map_err(|e| JsValue::from_str(&format!("Invalid manifest: {e}")))?;
+
+            let res = self
+                .get_video_info_from_manifest(&manifest)
+                .await
+                .map_err(|e| JsValue::from_str(&e.to_string()))?;
+            to_js_value(&res).map_err(|e| JsValue::from_str(&e.to_string()))
+        }
+
+        #[wasm_bindgen(js_name = "fetchStreamsFromManifest")]
+        pub async fn fetch_streams_from_manifest(
+            &self,
+            manifest: JsValue,
+        ) -> Result<JsValue, JsValue> {
+            let parsed_manifest: YtManifest = from_value(manifest)
+                .map_err(|e| JsValue::from_str(&format!("Invalid manifest: {e}")))?;
+
+            let res = self
+                .get_streams_from_manifest(&parsed_manifest)
+                .await
+                .map_err(|e| JsValue::from_str(&e.to_string()))?;
+            to_js_value(&res).map_err(|e| JsValue::from_str(&e.to_string()))
+        }
+
+        #[wasm_bindgen(js_name = "fetchManifest")]
+        pub async fn fetch_manifest(&self, video_id: String) -> Result<JsValue, JsValue> {
+            let id = VideoId::new(&video_id).map_err(|e| JsValue::from_str(&e.to_string()))?;
+
+            let res = self
+                .get_manifest(&id)
+                .await
+                .map_err(|e| JsValue::from_str(&e.to_string()))?;
+            to_js_value(&res).map_err(|e| JsValue::from_str(&e.to_string()))
+        }
+
+        #[wasm_bindgen(js_name = "decipherSignature")]
+        pub async fn decipher_signature_js(
+            &self,
+            signature: String,
+            player_url: String,
+        ) -> Result<JsValue, JsValue> {
+            let res = self
+                .decipher_signature(signature, player_url)
+                .await
+                .map_err(|e| JsValue::from_str(&e.to_string()))?;
+            Ok(res.into())
+        }
+    }
+}

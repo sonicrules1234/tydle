@@ -1,8 +1,18 @@
+#[cfg(not(target_arch = "wasm32"))]
 use std::collections::HashMap;
 
+#[cfg(target_arch = "wasm32")]
+use anyhow::{Result, anyhow};
+#[cfg(not(target_arch = "wasm32"))]
 use anyhow::{Result, bail};
+#[cfg(not(target_arch = "wasm32"))]
 use deno_core::JsRuntime;
+#[cfg(target_arch = "wasm32")]
+use js_sys::{Function, eval};
+#[cfg(not(target_arch = "wasm32"))]
 use serde_json::json;
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::prelude::*;
 
 use crate::{
     cache::CacheAccess,
@@ -61,6 +71,7 @@ impl SignatureJsHandle for SignatureDecipher {
 
     // Taken from `youtube_explode_dart`'s implementation with `yt-dlp`'s ejs cipher library.
     // See: https://github.com/Hexer10/youtube_explode_dart/blob/a993b3d463713b0aabd945f07a7e6a1635bcf1e7/lib/src/reverse_engineering/challenges/ejs/ejs.dart
+    #[cfg(not(target_arch = "wasm32"))]
     async fn parse_signature_js(
         &self,
         code: String,
@@ -113,5 +124,52 @@ impl SignatureJsHandle for SignatureDecipher {
         };
 
         Ok(deciphered_sig.into())
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    async fn parse_signature_js(
+        &self,
+        code: String,
+        example_sig: String,
+        signature_type: SignatureType,
+    ) -> Result<String> {
+        let (lib_code, core_code) = self.get_js_modules().await?;
+
+        let js_env = format!(
+            "{}\nObject.assign(globalThis, lib);\n{}",
+            lib_code, core_code
+        );
+
+        eval(&js_env).map_err(|err| anyhow!("JS eval failed: {:?}", err))?;
+
+        let func = eval("jsc")
+            .map_err(|_| anyhow!("jsc not defined"))?
+            .dyn_into::<Function>()
+            .map_err(|_| anyhow!("Failed to defined `jsc` in the JS context."))?;
+
+        let input = serde_json::json!({
+            "type": "player",
+            "player": code,
+            "requests": [{"type": signature_type.as_str(), "challenges": [example_sig]}],
+            "output_preprocessed": true
+        });
+
+        let js_input = serde_wasm_bindgen::to_value(&input).map_err(|_| {
+            anyhow!("Signature deciphering failed due to the failure of serializing input for the JS context.")
+        })?;
+        let result_val = func
+            .call1(&JsValue::NULL, &js_input)
+            .map_err(|e| anyhow!("jsc() call failed: {:?}", e))?;
+
+        let result: serde_json::Value =
+            serde_wasm_bindgen::from_value(result_val).map_err(|_| {
+                anyhow!("Signature deciphering failed because the JS bridge returned an error.")
+            })?;
+        let deciphered = result["responses"][0]["data"][&example_sig]
+            .as_str()
+            .unwrap_or_default()
+            .to_string();
+
+        Ok(deciphered)
     }
 }
