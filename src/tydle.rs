@@ -1,4 +1,5 @@
 use anyhow::{Result, anyhow};
+use std::collections::HashMap;
 use std::pin::Pin;
 use std::{
     future::Future,
@@ -15,6 +16,12 @@ use crate::{
     yt_interface::VideoId,
 };
 
+#[derive(Default)]
+pub struct TydleOptions {
+    /// Map of cookies extracted from an authenticated YouTube account.
+    pub auth_cookies: HashMap<String, String>,
+}
+
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 pub struct Tydle {
     yt_extractor: Arc<Mutex<YtExtractor>>,
@@ -23,11 +30,15 @@ pub struct Tydle {
 
 impl Tydle {
     #[cfg(not(target_arch = "wasm32"))]
-    pub fn new() -> Result<Self> {
+    pub fn new(options: TydleOptions) -> Result<Self> {
         let player_cache = Arc::new(CacheStore::new());
         let code_cache = Arc::new(CacheStore::new());
 
-        let yt_extractor = YtExtractor::new(player_cache.clone(), code_cache.clone())?;
+        let yt_extractor = YtExtractor::new(
+            player_cache.clone(),
+            code_cache.clone(),
+            options.auth_cookies,
+        )?;
         let signature_decipher = SignatureDecipher::new(player_cache, code_cache);
 
         Ok(Self {

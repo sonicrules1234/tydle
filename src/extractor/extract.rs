@@ -8,6 +8,7 @@ use fancy_regex::Regex;
 use serde_json::{Map, Value};
 
 use crate::{
+    YT_URL,
     cache::CacheStore,
     cookies::CookieJar,
     extractor::{
@@ -62,11 +63,14 @@ impl YtExtractor {
     pub fn new(
         player_cache: Arc<CacheStore<(String, String)>>,
         code_cache: Arc<CacheStore>,
+        auth_cookies: HashMap<String, String>,
     ) -> Result<Self> {
+        let cookie_jar = CookieJar::new_from_domain(YT_URL, auth_cookies)?;
+
         let extractor = Self {
             passed_auth_cookies: AtomicBool::new(false),
             http_client: reqwest::Client::new(),
-            cookie_jar: CookieJar::new(),
+            cookie_jar,
             player_cache,
             code_cache,
             // x_forwarded_for_ip: None,

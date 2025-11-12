@@ -12,6 +12,7 @@ use crate::{
     yt_interface::YT_URL,
 };
 
+#[derive(Debug)]
 pub struct SidCookies {
     pub yt_sapisid: Option<String>,
     pub yt_1psapisid: Option<String>,
@@ -58,7 +59,9 @@ impl ExtractorCookieHandle for YtExtractor {
     }
 
     fn get_youtube_cookies(&self) -> Result<Cookies> {
-        self.get_cookies(YT_URL)
+        let c = self.get_cookies(YT_URL)?;
+
+        Ok(c)
     }
 
     fn get_sid_cookies(&self) -> Result<SidCookies> {
