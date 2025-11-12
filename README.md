@@ -17,11 +17,11 @@ Then use the crate in your Rust code:
 ```rs
 use anyhow::Result;
 // `Tydle` is the public interface to interact with YouTube.
-use tydle::{Tydle, Extract};
+use tydle::{Tydle, TydleOptions, Extract};
 
 async fn main() -> Result<()> {
   // Initialize `tydle`
-  let ty = Tydle::new()?;
+  let ty = Tydle::new(TydleOptions { ..Default::default() })?;
 
   // Now you can fetch depending on what you need.
   let manifest = ty.get_manifest(...).await?;
@@ -38,11 +38,11 @@ async fn main() -> Result<()> {
 
 ```rs
 use anyhow::Result;
-use tydle::{Tydle, Extract};
+use tydle::{Tydle, TydleOptions, Extract};
 
 #[tokio::main]
 async fn main() -> Result<()> {
-  let ty = Tydle::new()?;
+  let ty = Tydle::new(TydleOptions { ..Default::default() })?;
 
   let streams = ty.get_streams(...).await?;
   let video_info = ty.get_video_info(...).await?;
@@ -59,11 +59,11 @@ Instead, you should use the `get_manifest` method **to fetch the manifest once**
 
 ```rs
 use anyhow::Result;
-use tydle::{Tydle, VideoId, Extract};
+use tydle::{Tydle, TydleOptions, VideoId, Extract};
 
 #[tokio::main]
 async fn main() -> Result<()> {
-  let ty = Tydle::new()?;
+  let ty = Tydle::new(TydleOptions { ..Default::default() })?;
 
   let video_id = VideoId::new("XDjB9E3YtUE")?;
   // Now that you have this manifest fetched once, simply pass it to the `x_from_manifest` functions.
@@ -115,11 +115,11 @@ To actually use signature deciphering, import the `Cipher` trait to call `deciph
 
 ```rs
 use anyhow::Result;
-use tydle::{Tydle, Cipher};
+use tydle::{Tydle, TydleOptions, Cipher};
 
 #[tokio::main]
 async fn main() -> Result<()> {
-  let ty = Tydle::new()?;
+  let ty = Tydle::new(TydleOptions { ..Default::default() })?;
 
   let deciphered = ty.decipher_signature(...).await?;
 

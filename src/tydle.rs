@@ -16,6 +16,7 @@ use crate::{
     yt_interface::VideoId,
 };
 
+#[cfg_attr(target_arch = "wasm32", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Default)]
 pub struct TydleOptions {
     /// Map of cookies extracted from an authenticated YouTube account.
@@ -56,12 +57,12 @@ pub trait Extract {
     /// need to fetch either and not both since they call `Tydle::get_manifest` themselves internally.
     ///
     /// ```
-    /// use tydle::{Tydle, Extract, VideoId, YtManifest};
+    /// use tydle::{Tydle, TydleOptions, Extract, VideoId, YtManifest};
     /// use anyhow::Result;
     ///
     /// #[tokio::main]
     /// async fn main() -> Result<()> {
-    ///   let ty = Tydle::new()?;
+    ///   let ty = Tydle::new(TydleOptions{ ..Default::default() })?;
     ///
     ///   let video_id = VideoId::new("dQw4w9WgXcQ")?;
     ///
@@ -82,12 +83,12 @@ pub trait Extract {
     /// If you already have a raw manifest fetched, use `Tydle::get_video_info_from_manifest` instead to avoid refetching.
     ///
     /// ```
-    /// use tydle::{Tydle, Extract, VideoId, YtVideoInfo};
+    /// use tydle::{Tydle, TydleOptions, Extract, VideoId, YtVideoInfo};
     /// use anyhow::Result;
     ///
     /// #[tokio::main]
     /// async fn main() -> Result<()> {
-    ///   let ty = Tydle::new()?;
+    ///   let ty = Tydle::new(TydleOptions{ ..Default::default() })?;
     ///
     ///   let video_id = VideoId::new("dQw4w9WgXcQ")?;
     ///   let video_info: YtVideoInfo = ty.get_video_info(&video_id).await?;
@@ -102,12 +103,12 @@ pub trait Extract {
     /// If you do not require using the manifest directly, use `Tydle::get_video_info` instead to fetch directly.
     ///
     /// ```
-    /// use tydle::{Tydle, Extract, VideoId, YtVideoInfo};
+    /// use tydle::{Tydle, TydleOptions, Extract, VideoId, YtVideoInfo};
     /// use anyhow::Result;
     ///
     /// #[tokio::main]
     /// async fn main() -> Result<()> {
-    ///   let ty = Tydle::new()?;
+    ///   let ty = Tydle::new(TydleOptions{ ..Default::default() })?;
     ///
     ///   let video_id = VideoId::new("dQw4w9WgXcQ")?;
     ///
@@ -128,12 +129,12 @@ pub trait Extract {
     /// If you do not require using the manifest directly, use `Tydle::get_streams` instead to fetch directly.
     ///
     /// ```
-    /// use tydle::{Tydle, Extract, VideoId, YtStreamResponse};
+    /// use tydle::{Tydle, TydleOptions, Extract, VideoId, YtStreamResponse};
     /// use anyhow::Result;
     ///
     /// #[tokio::main]
     /// async fn main() -> Result<()> {
-    ///   let ty = Tydle::new()?;
+    ///   let ty = Tydle::new(TydleOptions{ ..Default::default() })?;
     ///
     ///   let video_id = VideoId::new("dQw4w9WgXcQ")?;
     ///
@@ -157,12 +158,12 @@ pub trait Extract {
     /// If you already have a raw manifest fetched, use `Tydle::get_streams_from_manifest` instead to avoid refetching.
     ///
     /// ```
-    /// use tydle::{Tydle, Extract, VideoId, YtStreamResponse};
+    /// use tydle::{Tydle, TydleOptions, Extract, VideoId, YtStreamResponse};
     /// use anyhow::Result;
     ///
     /// #[tokio::main]
     /// async fn main() -> Result<()> {
-    ///   let ty = Tydle::new()?;
+    ///   let ty = Tydle::new(TydleOptions{ ..Default::default() })?;
     ///
     ///   let video_id = VideoId::new("dQw4w9WgXcQ")?;
     ///   let stream_response: YtStreamResponse = ty.get_streams(&video_id).await?;
@@ -287,12 +288,16 @@ mod wasm_api {
     #[wasm_bindgen]
     impl Tydle {
         #[wasm_bindgen(constructor)]
-        pub fn new() -> Result<Tydle, JsValue> {
+        pub fn new(options: JsValue) -> Result<Tydle, JsValue> {
+            let tydle_options: TydleOptions = serde_wasm_bindgen::from_value(options)
+                .map_err(|e| JsValue::from_str(&e.to_string()))?;
+
             let player_cache = Arc::new(CacheStore::new());
             let code_cache = Arc::new(CacheStore::new());
 
-            let yt_extractor = YtExtractor::new(player_cache.clone(), code_cache.clone())
-                .map_err(|e| JsValue::from_str(&e.to_string()))?;
+            let yt_extractor =
+                YtExtractor::new(player_cache.clone(), code_cache.clone(), tydle_options)
+                    .map_err(|e| JsValue::from_str(&e.to_string()))?;
 
             let signature_decipher = SignatureDecipher::new(player_cache, code_cache);
 

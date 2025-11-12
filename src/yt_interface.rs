@@ -302,12 +302,12 @@ pub trait Filterable {
     /// Filter to return video-only streams.
     ///
     /// ```
-    /// use tydle::{Tydle, VideoId, Extract, Filterable};
+    /// use tydle::{Tydle, TydleOptions, VideoId, Extract, Filterable};
     /// use anyhow::Result;
     ///
     /// #[tokio::main]
     /// async fn main() -> Result<()> {
-    ///   let ty = Tydle::new()?;
+    ///   let ty = Tydle::new(TydleOptions { ..Default::default() })?;
     ///   // Get the stream with the lowest bitrate.
     ///   let video_only = ty
     ///      .get_streams(&VideoId::new("dQw4w9WgXcQ")?)
@@ -323,12 +323,12 @@ pub trait Filterable {
     /// Filter to return audio-only streams.
     ///
     /// ```
-    /// use tydle::{Tydle, Extract, VideoId, Filterable};
+    /// use tydle::{Tydle, TydleOptions, Extract, VideoId, Filterable};
     /// use anyhow::Result;
     ///
     /// #[tokio::main]
     /// async fn main() -> Result<()> {
-    ///   let ty = Tydle::new()?;
+    ///   let ty = Tydle::new(TydleOptions { ..Default::default() })?;
     ///   // Get the stream with the lowest bitrate.
     ///   let audio_only = ty
     ///      .get_streams(&VideoId::new("dQw4w9WgXcQ")?)
@@ -344,12 +344,12 @@ pub trait Filterable {
     /// Filter to return only those streams which do not require signature deciphering.
     ///
     /// ```
-    /// use tydle::{Tydle, Extract, VideoId, Filterable};
+    /// use tydle::{Tydle, TydleOptions, Extract, VideoId, Filterable};
     /// use anyhow::Result;
     ///
     /// #[tokio::main]
     /// async fn main() -> Result<()> {
-    ///   let ty = Tydle::new()?;
+    ///   let ty = Tydle::new(TydleOptions { ..Default::default() })?;
     ///   // Get the stream with the lowest bitrate.
     ///   let lowest_br_streams = ty
     ///      .get_streams(&VideoId::new("dQw4w9WgXcQ")?)
@@ -365,12 +365,12 @@ pub trait Filterable {
     /// Sort streams to highest bitrate first.
     ///
     /// ```
-    /// use tydle::{Tydle, Extract, VideoId, Filterable};
+    /// use tydle::{Tydle, TydleOptions, Extract, VideoId, Filterable};
     /// use anyhow::Result;
     ///
     /// #[tokio::main]
     /// async fn main() -> Result<()> {
-    ///   let ty = Tydle::new()?;
+    ///   let ty = Tydle::new(TydleOptions { ..Default::default() })?;
     ///   // Get the streams with the highest bitrate.
     ///   let highest_br_streams = ty
     ///      .get_streams(&VideoId::new("dQw4w9WgXcQ")?)
@@ -387,12 +387,12 @@ pub trait Filterable {
     /// For the purpose of signature deciphering, use `Tydle::decipher_signature`
     ///
     /// ```
-    /// use tydle::{Tydle, Extract, VideoId, Filterable};
+    /// use tydle::{Tydle, TydleOptions, Extract, VideoId, Filterable};
     /// use anyhow::Result;
     ///
     /// #[tokio::main]
     /// async fn main() -> Result<()> {
-    ///   let ty = Tydle::new()?;
+    ///   let ty = Tydle::new(TydleOptions { ..Default::default() })?;
     ///   // Get direct signature streams.
     ///   let signature_streams = ty
     ///      .get_streams(&VideoId::new("dQw4w9WgXcQ")?)
@@ -411,12 +411,12 @@ pub trait Filterable {
     /// Filter streams to return only those which do not require signature deciphering.
     ///
     /// ```
-    /// use tydle::{Tydle, Extract, VideoId, Filterable};
+    /// use tydle::{Tydle, TydleOptions, Extract, VideoId, Filterable};
     /// use anyhow::Result;
     ///
     /// #[tokio::main]
     /// async fn main() -> Result<()> {
-    ///   let ty = Tydle::new()?;
+    ///   let ty = Tydle::new(TydleOptions { ..Default::default() })?;
     ///   // Get direct URL streams.
     ///   let url_streams = ty
     ///      .get_streams(&VideoId::new("dQw4w9WgXcQ")?)
