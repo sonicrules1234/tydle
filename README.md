@@ -113,7 +113,7 @@ Signature deciphering requires executing JavaScript somehow, as we need to execu
 
 ```rs
 use anyhow::Result;
-use tydle::{Tydle, VideoId, Cipher};
+use tydle::{Tydle, Cipher};
 
 #[tokio::main]
 async fn main() -> Result<()> {
