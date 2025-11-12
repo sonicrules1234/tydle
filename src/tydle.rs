@@ -20,6 +20,8 @@ use crate::{
 pub struct TydleOptions {
     /// Map of cookies extracted from an authenticated YouTube account.
     pub auth_cookies: HashMap<String, String>,
+    /// Attempts to fetch over http instead of https.
+    pub prefer_insecure: bool,
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
@@ -34,11 +36,7 @@ impl Tydle {
         let player_cache = Arc::new(CacheStore::new());
         let code_cache = Arc::new(CacheStore::new());
 
-        let yt_extractor = YtExtractor::new(
-            player_cache.clone(),
-            code_cache.clone(),
-            options.auth_cookies,
-        )?;
+        let yt_extractor = YtExtractor::new(player_cache.clone(), code_cache.clone(), options)?;
         let signature_decipher = SignatureDecipher::new(player_cache, code_cache);
 
         Ok(Self {

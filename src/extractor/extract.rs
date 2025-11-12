@@ -8,7 +8,7 @@ use fancy_regex::Regex;
 use serde_json::{Map, Value};
 
 use crate::{
-    YT_URL,
+    TydleOptions, YT_URL,
     cache::CacheStore,
     cookies::CookieJar,
     extractor::{
@@ -27,9 +27,11 @@ pub struct YtExtractor {
     pub cookie_jar: CookieJar,
     pub player_cache: Arc<CacheStore<(String, String)>>,
     pub code_cache: Arc<CacheStore>,
+    pub tydle_options: TydleOptions,
 }
 
 pub trait InfoExtractor {
+    fn http_scheme(&self) -> &str;
     async fn extract_video_info_from_manifest(&self, manifest: &YtManifest) -> Result<YtVideoInfo>;
     fn extract_metadata(
         &self,
@@ -63,9 +65,9 @@ impl YtExtractor {
     pub fn new(
         player_cache: Arc<CacheStore<(String, String)>>,
         code_cache: Arc<CacheStore>,
-        auth_cookies: HashMap<String, String>,
+        tydle_options: TydleOptions,
     ) -> Result<Self> {
-        let cookie_jar = CookieJar::new_from_domain(YT_URL, auth_cookies)?;
+        let cookie_jar = CookieJar::new_from_domain(YT_URL, tydle_options.auth_cookies.clone())?;
 
         let extractor = Self {
             passed_auth_cookies: AtomicBool::new(false),
@@ -73,7 +75,7 @@ impl YtExtractor {
             cookie_jar,
             player_cache,
             code_cache,
-            // x_forwarded_for_ip: None,
+            tydle_options, // x_forwarded_for_ip: None,
         };
 
         extractor.initialize_pref()?;
@@ -506,11 +508,17 @@ impl InfoExtractor for YtExtractor {
         Ok(player_responses)
     }
 
+    fn http_scheme(&self) -> &str {
+        match self.tydle_options.prefer_insecure {
+            true => "http",
+            false => "https",
+        }
+    }
+
     async fn extract_manifest(&self, video_id: &VideoId) -> Result<YtManifest> {
-        // yt-dlp snippet: self.http_scheme() + "://"
-        let webpage_url = "https://www.youtube.com/watch";
+        let webpage_url = format!("{}://www.youtube.com/watch", self.http_scheme());
         let (initial_extracted_data, player_url) =
-            self.extract(webpage_url, &YtClient::Web, video_id).await?;
+            self.extract(&webpage_url, &YtClient::Web, video_id).await?;
 
         Ok(YtManifest::new(initial_extracted_data, player_url))
     }
