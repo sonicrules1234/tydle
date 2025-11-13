@@ -1,7 +1,6 @@
 mod cache;
 mod cipher;
 mod extractor;
-mod pot;
 mod utils;
 
 pub mod cookies;
