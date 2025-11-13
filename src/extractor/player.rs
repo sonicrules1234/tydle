@@ -432,13 +432,13 @@ impl ExtractorPlayerHandle for YtExtractor {
                 )
                 .await?;
 
-            if let Some(invalid_pr_id) = self.invalid_player_response(&player_response, video_id) {
+            if let Some(_invalid_pr_id) = self.invalid_player_response(&player_response, video_id) {
                 #[cfg(feature = "logging")]
                 log::warn!(
                     "Skipped {}. Received invalid player response for video with ID \"{}\", got {} instead.",
                     client,
                     video_id.as_str(),
-                    invalid_pr_id
+                    _invalid_pr_id
                 );
                 continue;
             }
