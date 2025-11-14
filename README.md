@@ -115,7 +115,7 @@ export async function GET({ params: { videoId } }) {
     return fetch("url" in urlStreams[0].source && urlStreams[0].source.url);
   } catch (err) {
     console.error(err);
-    return error(500, "Failed to get video");
+    return error(500, { message: "Failed to get video" });
   }
 }
 ```
