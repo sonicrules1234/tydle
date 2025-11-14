@@ -29,6 +29,8 @@ pub struct TydleOptions {
     pub auth_cookies: HashMap<String, String>,
     /// Attempts to fetch over http instead of https.
     pub prefer_insecure: bool,
+    /// Provide an address to set it as the `X-Forwarded-For` header when requesting YouTube.
+    pub source_address: String,
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]

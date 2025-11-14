@@ -129,6 +129,13 @@ impl ExtractorDownloadHandle for YtExtractor {
                 webpage_request.header("User-Agent", user_agent.as_str().unwrap_or_default());
         }
 
+        if !self.tydle_options.source_address.is_empty() {
+            webpage_request = webpage_request.header(
+                "X-Forwarded-For",
+                self.tydle_options.source_address.as_str(),
+            );
+        }
+
         let response = webpage_request.send().await?;
 
         let webpage = response.text().await.map_err(|e| Error::new(e))?;
