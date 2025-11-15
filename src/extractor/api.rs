@@ -6,8 +6,8 @@ use serde_json::{Value, json};
 
 use crate::{
     extractor::{
-        auth::ExtractorAuthHandle, client::INNERTUBE_CLIENTS, extract::YtExtractor,
-        ytcfg::ExtractorYtCfgHandle,
+        auth::ExtractorAuthHandle, client::INNERTUBE_CLIENTS, cookies::ExtractorCookieHandle,
+        extract::YtExtractor, ytcfg::ExtractorYtCfgHandle,
     },
     yt_interface::{DEFAULT_YT_CLIENT, YtClient, YtEndpoint},
 };
@@ -137,6 +137,12 @@ impl ExtractorApiHandle for YtExtractor {
             .post(yt_url)
             .json(&data)
             .query(&[("prettyPrint", "false")]);
+
+        let yt_cookies = self.get_youtube_cookies()?;
+
+        if !yt_cookies.is_empty() {
+            request_builder = request_builder.header("Cookie", yt_cookies.header_value());
+        }
 
         if let Some(available_api_key) = api_key {
             request_builder = request_builder.query(&[("key", available_api_key)]);

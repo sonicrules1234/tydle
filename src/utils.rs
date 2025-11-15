@@ -1,3 +1,4 @@
+use anyhow::Result;
 use std::collections::HashMap;
 
 use url::{Url, form_urlencoded};
@@ -29,4 +30,18 @@ pub fn replace_n_sig_query_param(
     url.query_pairs_mut().clear().extend_pairs(query_pairs);
 
     Ok(url.to_string())
+}
+
+#[cfg(target_arch = "wasm32")]
+pub fn unix_timestamp_secs() -> f64 {
+    js_sys::Date::now() / 1000.0
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn unix_timestamp_secs() -> f64 {
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    let now = SystemTime::now();
+    let epoch = now.duration_since(UNIX_EPOCH).unwrap();
+    epoch.as_secs_f64()
 }

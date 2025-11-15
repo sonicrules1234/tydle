@@ -8,7 +8,7 @@ use fancy_regex::Regex;
 use serde_json::{Map, Value};
 
 use crate::{
-    TydleOptions, YT_URL,
+    TydleOptions,
     cache::CacheStore,
     cookies::CookieJar,
     extractor::{
@@ -67,7 +67,7 @@ impl YtExtractor {
         code_cache: Arc<CacheStore>,
         tydle_options: TydleOptions,
     ) -> Result<Self> {
-        let cookie_jar = CookieJar::new_from_domain(YT_URL, tydle_options.auth_cookies.clone())?;
+        let cookie_jar = CookieJar::new_with_cookies(tydle_options.auth_cookies.clone());
 
         let extractor = Self {
             passed_auth_cookies: AtomicBool::new(false),
@@ -234,7 +234,9 @@ impl InfoExtractor for YtExtractor {
                 // Skip livestream.
                 if target_duration_sec.is_some() {
                     #[cfg(feature = "logging")]
-                    log::info!("Skipped a found livestream because livestreams are not supported.");
+                    log::info!(
+                        "Skipped a format. Found livestream because livestreams are not supported."
+                    );
                     continue;
                 }
 
@@ -498,6 +500,7 @@ impl InfoExtractor for YtExtractor {
                 .select_default_ytcfg(Some(webpage_client))?
                 .to_json_val_hashmap()?;
         }
+
         let initial_data = self
             .download_initial_data(video_id, &webpage, webpage_client, &webpage_ytcfg)
             .await?;

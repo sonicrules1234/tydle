@@ -4,7 +4,7 @@ use anyhow::{Result, anyhow};
 use serde_json::Value;
 
 use crate::{
-    cookies::CookieStore,
+    cookies::{Cookie, CookieStore},
     extractor::{cookies::ExtractorCookieHandle, extract::YtExtractor, json::ExtractorJsonHandle},
     utils::{convert_to_query_string, parse_query_string},
     yt_interface::{PREFERRED_LOCALE, YT_URL},
@@ -59,12 +59,18 @@ impl ExtractorAuthHandle for YtExtractor {
         let yt_cookies = self.get_youtube_cookies()?;
 
         if let Some(socs) = yt_cookies.get("SOCS") {
-            if !socs.starts_with("CAA") {
+            if !socs.value.starts_with("CAA") {
                 return Ok(());
             }
         }
 
-        self.cookie_jar.set(YT_URL, "SOCS", "CAI")?;
+        self.cookie_jar.set(Cookie {
+            name: "SOCS".into(),
+            value: "CAI".into(),
+            domain: YT_URL.into(),
+            secure: true,
+            ..Default::default()
+        })?;
         Ok(())
     }
 
@@ -73,7 +79,7 @@ impl ExtractorAuthHandle for YtExtractor {
         let mut pref: HashMap<String, String> = HashMap::new();
 
         if let Some(raw_pref) = youtube_cookies.get("PREF") {
-            match parse_query_string(&raw_pref) {
+            match parse_query_string(&raw_pref.value) {
                 Some(parsed_qs) => pref = parsed_qs,
                 None => return Err(anyhow!("Failed to parse user PREF cookie.")),
             }
@@ -84,7 +90,12 @@ impl ExtractorAuthHandle for YtExtractor {
 
         let pref_qs = convert_to_query_string(&pref);
 
-        self.cookie_jar.set(YT_URL, "PREF", pref_qs.as_str())?;
+        self.cookie_jar.set(Cookie {
+            name: "PREF".into(),
+            value: pref_qs,
+            domain: YT_URL.into(),
+            ..Default::default()
+        })?;
         Ok(())
     }
 
@@ -96,7 +107,7 @@ impl ExtractorAuthHandle for YtExtractor {
         let sid_cookies = self.get_sid_cookies()?;
         let youtube_cookies = self.get_youtube_cookies()?;
 
-        Ok(youtube_cookies.contains_key("LOGIN_INFO")
+        Ok(youtube_cookies.exists("LOGIN_INFO")
             && (sid_cookies.yt_sapisid.is_some()
                 || sid_cookies.yt_1psapisid.is_some()
                 || sid_cookies.yt_3psapisid.is_some()))

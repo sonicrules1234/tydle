@@ -1,5 +1,4 @@
 use anyhow::{Result, anyhow};
-use std::collections::HashMap;
 use std::pin::Pin;
 use std::{
     future::Future,
@@ -10,6 +9,7 @@ use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::cache::CacheStore;
 use crate::cipher::decipher::{SignatureDecipher, SignatureDecipherHandle};
+use crate::cookies::DomainCookies;
 use crate::yt_interface::{YtManifest, YtStreamResponse, YtVideoInfo};
 use crate::{
     extractor::extract::{InfoExtractor, YtExtractor},
@@ -26,7 +26,7 @@ use crate::{
 #[derive(Default)]
 pub struct TydleOptions {
     /// Map of cookies extracted from an authenticated YouTube account.
-    pub auth_cookies: HashMap<String, String>,
+    pub auth_cookies: DomainCookies,
     /// Attempts to fetch over http instead of https.
     pub prefer_insecure: bool,
     /// Provide an address to set it as the `X-Forwarded-For` header when requesting YouTube.

@@ -9,6 +9,7 @@ use crate::{
     extractor::{
         api::ExtractorApiHandle,
         client::INNERTUBE_CLIENTS,
+        cookies::ExtractorCookieHandle,
         extract::{InfoExtractor, YtExtractor},
         player::ExtractorPlayerHandle,
         ytcfg::ExtractorYtCfgHandle,
@@ -127,6 +128,12 @@ impl ExtractorDownloadHandle for YtExtractor {
         if let Some(user_agent) = client.get("userAgent") {
             webpage_request =
                 webpage_request.header("User-Agent", user_agent.as_str().unwrap_or_default());
+        }
+
+        let yt_cookies = self.get_youtube_cookies()?;
+
+        if !yt_cookies.is_empty() {
+            webpage_request = webpage_request.header("Cookie", yt_cookies.header_value());
         }
 
         if !self.tydle_options.source_address.is_empty() {

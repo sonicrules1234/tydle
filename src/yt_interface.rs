@@ -81,6 +81,7 @@ impl YtClient {
 
 pub(crate) const DEFAULT_YT_CLIENT: YtClient = YtClient::Web;
 pub(crate) const PREFERRED_LOCALE: &str = "en";
+pub(crate) const YT_DOMAIN: &str = ".youtube.com";
 pub(crate) const YT_URL: &str = "https://www.youtube.com";
 
 pub const AUDIO_ONLY_FORMATS: [&str; 4] = [

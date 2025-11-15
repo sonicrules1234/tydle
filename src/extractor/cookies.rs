@@ -1,29 +1,28 @@
-use std::{
-    collections::HashMap,
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::collections::HashMap;
 
 use anyhow::Result;
 use sha1::{Digest, Sha1};
 
 use crate::{
-    cookies::{CookieStore, Cookies},
+    YT_DOMAIN,
+    cookies::{Cookie, CookieStore, DomainCookies},
     extractor::extract::YtExtractor,
+    utils::unix_timestamp_secs,
     yt_interface::YT_URL,
 };
 
 #[derive(Debug)]
 pub struct SidCookies {
-    pub yt_sapisid: Option<String>,
-    pub yt_1psapisid: Option<String>,
-    pub yt_3psapisid: Option<String>,
+    pub yt_sapisid: Option<Cookie>,
+    pub yt_1psapisid: Option<Cookie>,
+    pub yt_3psapisid: Option<Cookie>,
 }
 
 impl SidCookies {
     pub fn new(
-        yt_sapisid: Option<String>,
-        yt_1psapisid: Option<String>,
-        yt_3psapisid: Option<String>,
+        yt_sapisid: Option<Cookie>,
+        yt_1psapisid: Option<Cookie>,
+        yt_3psapisid: Option<Cookie>,
     ) -> Self {
         Self {
             yt_sapisid,
@@ -33,13 +32,13 @@ impl SidCookies {
     }
 }
 pub trait ExtractorCookieHandle {
-    fn get_cookies(&self, url: &str) -> Result<Cookies>;
-    fn get_youtube_cookies(&self) -> Result<Cookies>;
+    fn get_cookies(&self, url: &str) -> Result<DomainCookies>;
+    fn get_youtube_cookies(&self) -> Result<DomainCookies>;
     /// Get SAPISID, 1PSAPISID, 3PSAPISID cookie values.
     fn get_sid_cookies(&self) -> Result<SidCookies>;
     fn make_sid_authorization(
         &self,
-        scheme: &'static str,
+        scheme: &str,
         sid: String,
         origin: String,
         additional_parts: HashMap<&str, String>,
@@ -53,22 +52,26 @@ pub trait ExtractorCookieHandle {
 }
 
 impl ExtractorCookieHandle for YtExtractor {
-    fn get_cookies(&self, url: &str) -> Result<Cookies> {
-        let cookies = self.cookie_jar.get_all(url)?.unwrap_or_default();
+    fn get_cookies(&self, url: &str) -> Result<DomainCookies> {
+        let cookies = self.cookie_jar.get_all(url)?;
         Ok(cookies)
     }
 
-    fn get_youtube_cookies(&self) -> Result<Cookies> {
-        let c = self.get_cookies(YT_URL)?;
-
-        Ok(c)
+    fn get_youtube_cookies(&self) -> Result<DomainCookies> {
+        self.get_cookies(YT_DOMAIN)
     }
 
     fn get_sid_cookies(&self) -> Result<SidCookies> {
         let yt_cookies = self.get_youtube_cookies()?;
         let yt_sapisid = yt_cookies.get("SAPISID").cloned();
-        let yt_3papisid = yt_cookies.get("__Secure-3PAPISID").cloned();
-        let yt_1papisid = yt_cookies.get("__Secure-1PAPISID").cloned();
+        let yt_3papisid = yt_cookies
+            .iter()
+            .find(|c| c.name == "__Secure-3PAPISID")
+            .cloned();
+        let yt_1papisid = yt_cookies
+            .iter()
+            .find(|c| c.name == "__Secure-1PAPISID")
+            .cloned();
         let sid_cookies = SidCookies::new(
             yt_sapisid.or_else(|| yt_3papisid.clone()),
             yt_1papisid,
@@ -80,14 +83,12 @@ impl ExtractorCookieHandle for YtExtractor {
 
     fn make_sid_authorization(
         &self,
-        scheme: &'static str,
+        scheme: &str,
         sid: String,
         origin: String,
         additional_parts: HashMap<&str, String>,
     ) -> Result<String> {
-        let now = SystemTime::now();
-        let epoch_duration = now.duration_since(UNIX_EPOCH)?;
-        let time_stamp = epoch_duration.as_secs_f64().round().to_string();
+        let time_stamp = unix_timestamp_secs().round().to_string();
 
         let mut hash_parts: Vec<String> = Vec::new();
 
@@ -145,7 +146,7 @@ impl ExtractorCookieHandle for YtExtractor {
             if let Some(sid) = sid_opt {
                 let auth = self.make_sid_authorization(
                     scheme,
-                    sid,
+                    sid.value,
                     origin.as_deref().unwrap_or(YT_URL).to_string(),
                     additional_parts.clone(),
                 )?;
