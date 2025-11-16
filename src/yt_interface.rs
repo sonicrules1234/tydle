@@ -111,10 +111,6 @@ pub(crate) const PREFERRED_LOCALE: &str = "en";
 pub(crate) const YT_DOMAIN: &str = ".youtube.com";
 pub(crate) const YT_URL: &str = "https://www.youtube.com";
 
-pub const VIDEO_ONLY_FORMATS: [&str; 10] = [
-    "tiny", "small", "medium", "large", "hd720", "hd1080", "hd1440", "hd2160", "hd2880", "highres",
-];
-
 pub const STREAMING_DATA_CLIENT_NAME: &str = "__tydle_ytdlp_client";
 // pub const STREAMING_DATA_FETCH_SUBS_PO_TOKEN: &str = "__tydle_ytdlp_fetch_subs_po_token";
 // pub const STREAMING_DATA_FETCH_GVS_PO_TOKEN: &str = "__tydle_ytdlp_fetch_gvs_po_token";
@@ -509,7 +505,7 @@ impl Filterable for YtStreamList {
         YtStreamList(
             streams
                 .iter()
-                .filter(|s| VIDEO_ONLY_FORMATS.contains(&s.quality_label.clone().as_str()))
+                .filter(|s| !matches!(&s.codec.vcodec, Some(v) if v == "none"))
                 .cloned()
                 .collect(),
         )
