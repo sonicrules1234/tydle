@@ -223,5 +223,9 @@ pub fn parse_codecs(codecs: &str) -> Result<(Option<String>, Option<String>)> {
         }
     }
 
-    Ok((vcodec, acodec))
+    // Just trust me on this.
+    let vcodec = vcodec.unwrap_or_else(|| "none".to_string());
+    let acodec = acodec.unwrap_or_else(|| "none".to_string());
+
+    Ok((Some(vcodec), Some(acodec)))
 }

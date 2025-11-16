@@ -429,6 +429,8 @@ impl InfoExtractor for YtExtractor {
                         .and_then(|dr| dr.as_bool())
                         .unwrap_or_default(),
                     ext,
+                    is_dash: acodec.clone().unwrap_or_default() == "none"
+                        || vcodec.clone().unwrap_or_default() == "none",
                     codec: Codec { vcodec, acodec },
                 });
             }

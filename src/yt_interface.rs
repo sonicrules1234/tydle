@@ -285,6 +285,7 @@ pub struct YtStream {
     pub client: YtClient,
     pub ext: Ext,
     pub codec: Codec,
+    pub is_dash: bool,
 }
 
 #[cfg_attr(
