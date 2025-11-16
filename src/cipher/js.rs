@@ -39,6 +39,8 @@ impl SignatureJsHandle for SignatureDecipher {
         let lib_code = match self.code_cache.get(&YT_DLP_YT_SOLVER_PKG_LIB_URL.into())? {
             Some(cached_lib_code) => cached_lib_code,
             None => {
+                #[cfg(feature = "logging")]
+                log::info!("Cache empty, downloading yt-dlp's EJS lib module.");
                 let fetched_lib = reqwest::get(YT_DLP_YT_SOLVER_PKG_LIB_URL)
                     .await?
                     .text()
@@ -54,6 +56,8 @@ impl SignatureJsHandle for SignatureDecipher {
         let core_code = match self.code_cache.get(&YT_DLP_YT_SOLVER_PKG_CORE_URL.into())? {
             Some(cached_lib_code) => cached_lib_code,
             None => {
+                #[cfg(feature = "logging")]
+                log::info!("Cache empty, downloading yt-dlp's EJS core module.");
                 let fetched_lib = reqwest::get(YT_DLP_YT_SOLVER_PKG_CORE_URL)
                     .await?
                     .text()
@@ -78,6 +82,8 @@ impl SignatureJsHandle for SignatureDecipher {
         example_sig: String,
         signature_type: SignatureType,
     ) -> Result<String> {
+        #[cfg(feature = "logging")]
+        log::info!("Executing player.js JavaScript with Deno to decipher signature.");
         let (lib_code, core_code) = self.get_js_modules().await?;
 
         let js_env = format!(

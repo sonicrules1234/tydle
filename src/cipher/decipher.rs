@@ -98,6 +98,8 @@ impl SignatureDecipherHandle for SignatureDecipher {
     }
 
     async fn decipher(&self, signature: String, player_url: String) -> Result<String> {
+        #[cfg(feature = "logging")]
+        log::info!("Deciphering signature: \"{}\"", signature);
         let sc = parse_query_string(&signature).unwrap_or_default();
 
         let (Some(fmt_url), Some(encrypted_sig)) = (sc.get("url").cloned(), sc.get("s").cloned())

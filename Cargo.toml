@@ -1,7 +1,7 @@
 [package]
 name = "tydle"
 description = "YouTube video extractor written in Rust that can be used anywhere in web or native environments, based on an extremely small subset of yt-dlp."
-version = "0.1.2"
+version = "0.1.3"
 authors = ["Dev-Siri"]
 license = "MIT"
 repository = "https://github.com/Dev-Siri/tydle"
@@ -46,6 +46,7 @@ deno_core = "0.311.0"
 env_logger = { version = "0.11", optional = true }
 clap = { version = "4.5.51", features = ["derive"], optional = true }
 colored = "3"
+num_cpus = "1.17.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = "0.2"

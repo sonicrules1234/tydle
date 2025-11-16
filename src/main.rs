@@ -1,10 +1,21 @@
 use std::process;
 
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use clap::Parser;
 use colored::Colorize;
 use tokio::fs;
-use tydle::{Extract, Tydle, TydleOptions, VideoId, YtStream, cookies::parse_netscape_cookies};
+use tydle::{
+    Cipher, Ext, Extract, Filterable, Tydle, TydleOptions, VideoId, YtStream, YtStreamSource,
+    cookies::parse_netscape_cookies,
+};
+
+use crate::{
+    format::{Format, compact_num, get_resolution, human_readable_size, parse_format},
+    stream_downloader::StreamDownloader,
+};
+
+mod format;
+mod stream_downloader;
 
 #[derive(Parser, Debug)]
 #[clap(version)]
@@ -23,6 +34,12 @@ struct TydleArgs {
     list_formats: bool,
     #[arg(long)]
     get_url: bool,
+    /// Specify the type of format to download the stream of.
+    #[arg(long, short)]
+    format: Option<String>,
+    // Where to output the final downloaded stream.
+    #[arg(long)]
+    out: Option<String>,
     video_id: String,
 }
 
@@ -46,6 +63,8 @@ async fn run() -> Result<()> {
         None => Default::default(),
     };
 
+    let format = parse_format(args.format.unwrap_or("bestvideo".into()).as_str())?;
+
     tydle::logger::init_logging("info");
     let tydle = Tydle::new(TydleOptions {
         auth_cookies,
@@ -60,6 +79,92 @@ async fn run() -> Result<()> {
 
     if args.list_formats {
         list_formats(&yt_stream_response.streams);
+    }
+
+    let download_stream = match format {
+        Format::BestAudio => {
+            let mut streams = yt_stream_response
+                .streams
+                .audio_only()
+                .with_highest_bitrate()
+                .into_iter()
+                .collect::<Vec<_>>();
+
+            streams.sort_by_key(|s| match s.ext {
+                Ext::M4a | Ext::Mp4 => 0,
+                _ => 1,
+            });
+
+            streams
+                .first()
+                .cloned()
+                .ok_or(anyhow!("No matching stream."))
+        }
+        Format::BestVideo => {
+            let mut streams = yt_stream_response
+                .streams
+                .video_only()
+                .with_highest_bitrate()
+                .into_iter()
+                .collect::<Vec<_>>();
+
+            streams.sort_by_key(|s| match s.ext {
+                Ext::M4a | Ext::Mp4 => 0,
+                _ => 1,
+            });
+
+            streams
+                .first()
+                .cloned()
+                .ok_or(anyhow!("No matching stream."))
+        }
+        Format::WorstAudio => {
+            let streams = yt_stream_response
+                .streams
+                .audio_only()
+                .with_lowest_bitrate();
+            streams
+                .into_iter()
+                .collect::<Vec<_>>()
+                .first()
+                .cloned()
+                .ok_or(anyhow!("No matching stream."))
+        }
+        Format::WorstVideo => {
+            let streams = yt_stream_response
+                .streams
+                .video_only()
+                .with_lowest_bitrate();
+            streams
+                .into_iter()
+                .collect::<Vec<_>>()
+                .first()
+                .cloned()
+                .ok_or(anyhow!("No matching stream."))
+        }
+    }?;
+
+    let output = args.out.unwrap_or(format!(
+        "{}.{}",
+        video_id.as_str(),
+        download_stream.ext.as_str()
+    ));
+    let source = match download_stream.source {
+        YtStreamSource::URL(url) => url,
+        YtStreamSource::Signature(signature) => {
+            tydle
+                .decipher_signature(signature, yt_stream_response.player_url)
+                .await?
+        }
+    };
+
+    if !args.get_url {
+        let worker_count = num_cpus::get();
+        let downloader = StreamDownloader::new(worker_count);
+
+        downloader.download(&source, &output).await?;
+    } else {
+        println!("{}", source);
     }
 
     Ok(())
@@ -103,42 +208,5 @@ fn list_formats(streams: &Vec<YtStream>) {
             stream.codec.vcodec.clone().unwrap_or_default(),
             stream.codec.acodec.clone().unwrap_or_default(),
         );
-    }
-}
-
-fn get_resolution(height: Option<u64>, width: Option<u64>) -> String {
-    match (height, width) {
-        (Some(h), Some(w)) => format!("{}x{}", h, w),
-        _ => "".to_owned(),
-    }
-}
-
-fn compact_num(n: u64) -> String {
-    if n >= 1_000_000_000 {
-        format!("{:.1}B", n as f64 / 1_000_000_000.0)
-    } else if n >= 1_000_000 {
-        format!("{:.1}M", n as f64 / 1_000_000.0)
-    } else if n >= 1_000 {
-        format!("{:.1}K", n as f64 / 1_000.0)
-    } else {
-        n.to_string()
-    }
-}
-
-fn human_readable_size(bytes: u64) -> String {
-    const KIB: f64 = 1024.0;
-    const MIB: f64 = KIB * 1024.0;
-    const GIB: f64 = MIB * 1024.0;
-
-    let b = bytes as f64;
-
-    if b >= GIB {
-        format!("{:.2}GiB", b / GIB)
-    } else if b >= MIB {
-        format!("{:.2}MiB", b / MIB)
-    } else if b >= KIB {
-        format!("{:.2}KiB", b / KIB)
-    } else {
-        format!("{}B", bytes)
     }
 }

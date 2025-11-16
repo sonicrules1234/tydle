@@ -111,13 +111,6 @@ pub(crate) const PREFERRED_LOCALE: &str = "en";
 pub(crate) const YT_DOMAIN: &str = ".youtube.com";
 pub(crate) const YT_URL: &str = "https://www.youtube.com";
 
-pub const AUDIO_ONLY_FORMATS: [&str; 4] = [
-    "audio_quality_ultralow",
-    "audio_quality_low",
-    "audio_quality_medium",
-    "audio_quality_high",
-];
-
 pub const VIDEO_ONLY_FORMATS: [&str; 10] = [
     "tiny", "small", "medium", "large", "hd720", "hd1080", "hd1440", "hd2160", "hd2880", "highres",
 ];
@@ -502,7 +495,10 @@ impl Filterable for YtStreamList {
         YtStreamList(
             streams
                 .iter()
-                .filter(|s| AUDIO_ONLY_FORMATS.contains(&s.quality_label.clone().as_str()))
+                .filter(|s| {
+                    matches!(&s.codec.vcodec, Some(v) if v == "none")
+                        && !matches!(&s.codec.acodec, Some(a) if a == "none")
+                })
                 .cloned()
                 .collect(),
         )
