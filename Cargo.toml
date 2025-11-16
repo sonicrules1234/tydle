@@ -22,7 +22,7 @@ path = "src/main.rs"
 required-features = ["logging", "cli"]
 
 [features]
-default = []
+default = ["dep:log", "dep:env_logger"]
 logging = ["dep:log", "dep:env_logger"]
 cli = ["dep:clap"]
 
