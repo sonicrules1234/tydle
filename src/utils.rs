@@ -1,4 +1,5 @@
 use anyhow::Result;
+use fancy_regex::Regex;
 use maplit::hashmap;
 use std::collections::HashMap;
 
@@ -143,4 +144,84 @@ pub fn mime_type_to_ext(mime_type: &str) -> Ext {
         .or_else(|| mime_type_map.get(subtype_plus))
         .copied()
         .unwrap_or_default()
+}
+
+/// Parses `codecs_str` to return (vcodec, acodec)
+pub fn parse_codecs(codecs: &str) -> Result<(Option<String>, Option<String>)> {
+    if codecs.trim().is_empty() {
+        return Ok((None, None));
+    }
+
+    let split_re = Regex::new(r"\s*,\s*").unwrap();
+    let trimmed = codecs.trim().trim_matches(',');
+
+    let split_codecs: Vec<&str> = split_re.split(trimmed).filter_map(|s| s.ok()).collect();
+
+    let re = Regex::new(r"(?P<cp>[A-Za-z0-9]+)(?:\.(?P<params>.+))?$").unwrap();
+
+    let mut vcodec: Option<String> = None;
+    let mut acodec: Option<String> = None;
+
+    for full_codec in split_codecs {
+        let full_codec = full_codec.trim();
+        if full_codec.is_empty() {
+            continue;
+        }
+
+        let caps = match re.captures(full_codec).unwrap() {
+            Some(c) => c,
+            None => continue,
+        };
+
+        let codec_prefix = caps.name("cp").unwrap().as_str().to_lowercase();
+        let params = caps.name("params").map(|m| m.as_str().to_string());
+
+        // Build normalized "full" codec value
+        let full = if let Some(param_str) = params {
+            // strip leading zeros only for digit segments
+            let cleaned_parts: Vec<String> = param_str
+                .split('.')
+                .map(|p| {
+                    if p.chars().all(|c| c.is_ascii_digit()) {
+                        let stripped = p.trim_start_matches('0');
+                        if stripped.is_empty() {
+                            "0".to_string()
+                        } else {
+                            stripped.to_string()
+                        }
+                    } else {
+                        p.to_string()
+                    }
+                })
+                .collect();
+
+            format!("{}.{}", codec_prefix, cleaned_parts.join("."))
+        } else {
+            codec_prefix.clone()
+        };
+
+        // VIDEO prefixes
+        const VIDEO_PREFIXES: &[&str] = &[
+            "avc1", "avc2", "avc3", "avc4", "vp9", "vp8", "hev1", "hev2", "h263", "h264", "mp4v",
+            "hvc1", "av1", "theora", "dvh1", "dvhe",
+        ];
+
+        // AUDIO prefixes
+        const AUDIO_PREFIXES: &[&str] = &[
+            "flac", "mp4a", "opus", "vorbis", "mp3", "aac", "ac-4", "ac-3", "ec-3", "eac3", "dtsc",
+            "dtse", "dtsh", "dtsl",
+        ];
+
+        if VIDEO_PREFIXES.contains(&codec_prefix.as_str()) {
+            if vcodec.is_none() {
+                vcodec = Some(full);
+            }
+        } else if AUDIO_PREFIXES.contains(&codec_prefix.as_str()) {
+            if acodec.is_none() {
+                acodec = Some(full);
+            }
+        }
+    }
+
+    Ok((vcodec, acodec))
 }

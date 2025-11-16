@@ -15,10 +15,10 @@ use crate::{
         auth::ExtractorAuthHandle, client::INNERTUBE_CLIENTS, download::ExtractorDownloadHandle,
         json::ExtractorJsonHandle, player::ExtractorPlayerHandle, ytcfg::ExtractorYtCfgHandle,
     },
-    utils::{file_size_from_tbr, mime_type_to_ext},
+    utils::{file_size_from_tbr, mime_type_to_ext, parse_codecs},
     yt_interface::{
-        AudioTrackInfo, Ext, STREAMING_DATA_CLIENT_NAME, VideoId, YtAgeLimit, YtChannel, YtClient,
-        YtManifest, YtMediaType, YtStream, YtStreamResponse, YtStreamSource, YtThumbnail,
+        AudioTrackInfo, Codec, Ext, STREAMING_DATA_CLIENT_NAME, VideoId, YtAgeLimit, YtChannel,
+        YtClient, YtManifest, YtMediaType, YtStream, YtStreamResponse, YtStreamSource, YtThumbnail,
         YtVideoInfo,
     },
 };
@@ -364,7 +364,7 @@ impl InfoExtractor for YtExtractor {
 
                 let re = Regex::new(r#"((?:[^/]+)/(?:[^;]+))(?:;\s*codecs="([^"]+)")?"#)?;
 
-                let ext = match re.captures(
+                let (ext, (vcodec, acodec)) = match re.captures(
                     fmt.get("mimeType")
                         .unwrap_or_default()
                         .as_str()
@@ -372,13 +372,17 @@ impl InfoExtractor for YtExtractor {
                 )? {
                     Some(mime_mobj_captures) => {
                         let mime_type = mime_mobj_captures
-                            .get(0)
+                            .get(1)
+                            .and_then(|mt| Some(mt.as_str()))
+                            .unwrap_or_default();
+                        let codec = mime_mobj_captures
+                            .get(2)
                             .and_then(|mt| Some(mt.as_str()))
                             .unwrap_or_default();
 
-                        mime_type_to_ext(mime_type)
+                        (mime_type_to_ext(mime_type), parse_codecs(codec)?)
                     }
-                    None => Ext::Unknown,
+                    None => (Ext::Unknown, (None, None)),
                 };
 
                 let fps = fmt
@@ -425,6 +429,7 @@ impl InfoExtractor for YtExtractor {
                         .and_then(|dr| dr.as_bool())
                         .unwrap_or_default(),
                     ext,
+                    codec: Codec { vcodec, acodec },
                 });
             }
         }

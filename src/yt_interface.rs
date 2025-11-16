@@ -284,6 +284,18 @@ pub struct YtStream {
     pub spatial_audio: Option<String>,
     pub client: YtClient,
     pub ext: Ext,
+    pub codec: Codec,
+}
+
+#[cfg_attr(
+    target_arch = "wasm32",
+    derive(serde::Serialize, serde::Deserialize, tsify::Tsify),
+    tsify(into_wasm_abi, from_wasm_abi)
+)]
+#[derive(Debug, Clone)]
+pub struct Codec {
+    pub vcodec: Option<String>,
+    pub acodec: Option<String>,
 }
 
 #[cfg_attr(
