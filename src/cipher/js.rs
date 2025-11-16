@@ -133,11 +133,14 @@ impl SignatureJsHandle for SignatureDecipher {
         example_sig: String,
         signature_type: SignatureType,
     ) -> Result<String> {
+        use js_sys::{Array, Object};
+        use wasm_bindgen::JsValue;
+
         let (lib_code, core_code) = self.get_js_modules().await?;
 
         let js_env = format!(
-            "{}\nObject.assign(globalThis, lib);\n{}",
-            lib_code, core_code
+            "{}\nObject.assign(globalThis, lib);\n{}\nglobalThis.jsc = jsc;",
+            lib_code, core_code,
         );
 
         eval(&js_env).map_err(|err| anyhow!("JS eval failed: {:?}", err))?;
@@ -147,18 +150,45 @@ impl SignatureJsHandle for SignatureDecipher {
             .dyn_into::<Function>()
             .map_err(|_| anyhow!("Failed to defined `jsc` in the JS context."))?;
 
-        let input = serde_json::json!({
-            "type": "player",
-            "player": code,
-            "requests": [{"type": signature_type.as_str(), "challenges": [example_sig]}],
-            "output_preprocessed": true
-        });
+        let obj = Object::new();
+        js_sys::Reflect::set(
+            &obj,
+            &JsValue::from_str("type"),
+            &JsValue::from_str("player"),
+        )
+        .map_err(|e| anyhow!("{:?}", e))?;
+        js_sys::Reflect::set(
+            &obj,
+            &JsValue::from_str("player"),
+            &JsValue::from_str(&code),
+        )
+        .map_err(|e| anyhow!("{:?}", e))?;
 
-        let js_input = serde_wasm_bindgen::to_value(&input).map_err(|_| {
-            anyhow!("Signature deciphering failed due to the failure of serializing input for the JS context.")
-        })?;
+        let request = Object::new();
+        js_sys::Reflect::set(
+            &request,
+            &JsValue::from_str("type"),
+            &JsValue::from_str(signature_type.as_str()),
+        )
+        .map_err(|e| anyhow!("{:?}", e))?;
+        js_sys::Reflect::set(
+            &request,
+            &JsValue::from_str("challenges"),
+            &Array::of1(&JsValue::from_str(&example_sig)),
+        )
+        .map_err(|e| anyhow!("{:?}", e))?;
+
+        js_sys::Reflect::set(&obj, &JsValue::from_str("requests"), &Array::of1(&request))
+            .map_err(|e| anyhow!("{:?}", e))?;
+        js_sys::Reflect::set(
+            &obj,
+            &JsValue::from_str("output_preprocessed"),
+            &JsValue::from_bool(true),
+        )
+        .map_err(|e| anyhow!("{:?}", e))?;
+
         let result_val = func
-            .call1(&JsValue::NULL, &js_input)
+            .call1(&JsValue::NULL, &obj)
             .map_err(|e| anyhow!("jsc() call failed: {:?}", e))?;
 
         let result: serde_json::Value =

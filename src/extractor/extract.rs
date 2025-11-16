@@ -8,7 +8,7 @@ use fancy_regex::Regex;
 use serde_json::{Map, Value};
 
 use crate::{
-    AudioTrackInfo, Ext, STREAMING_DATA_CLIENT_NAME, TydleOptions,
+    TydleOptions,
     cache::CacheStore,
     cookies::CookieJar,
     extractor::{
@@ -17,8 +17,9 @@ use crate::{
     },
     utils::{file_size_from_tbr, mime_type_to_ext},
     yt_interface::{
-        VideoId, YtAgeLimit, YtChannel, YtClient, YtManifest, YtMediaType, YtStream,
-        YtStreamResponse, YtStreamSource, YtThumbnail, YtVideoInfo,
+        AudioTrackInfo, Ext, STREAMING_DATA_CLIENT_NAME, VideoId, YtAgeLimit, YtChannel, YtClient,
+        YtManifest, YtMediaType, YtStream, YtStreamResponse, YtStreamSource, YtThumbnail,
+        YtVideoInfo,
     },
 };
 
@@ -256,8 +257,8 @@ impl InfoExtractor for YtExtractor {
                 let itag = fmt
                     .get("itag")
                     .unwrap_or_default()
-                    .as_str()
-                    .and_then(|s| Some(s.to_string()));
+                    .as_u64()
+                    .unwrap_or_default();
 
                 let mut quality = fmt
                     .get("quality")
@@ -275,7 +276,7 @@ impl InfoExtractor for YtExtractor {
                 }
 
                 // The 3gp format (17) in android client has a quality of "small", but is actually worse than other formats.
-                if itag.clone().unwrap_or_default() == "17" {
+                if itag.clone() == 17 {
                     quality = Some("tiny".to_string());
                 }
 
@@ -320,7 +321,8 @@ impl InfoExtractor for YtExtractor {
 
                 let format_duration = fmt
                     .get("approxDurationMs")
-                    .and_then(|d| d.as_f64())
+                    .and_then(|d| d.as_str())
+                    .and_then(|ds| Some(ds.parse::<f64>().unwrap_or_default()))
                     .unwrap_or_default();
 
                 let tbr = fmt
@@ -362,7 +364,7 @@ impl InfoExtractor for YtExtractor {
 
                 let re = Regex::new(r#"((?:[^/]+)/(?:[^;]+))(?:;\s*codecs="([^"]+)")?"#)?;
 
-                let ext: Ext = match re.captures(
+                let ext = match re.captures(
                     fmt.get("mimeType")
                         .unwrap_or_default()
                         .as_str()
@@ -373,13 +375,23 @@ impl InfoExtractor for YtExtractor {
                             .get(0)
                             .and_then(|mt| Some(mt.as_str()))
                             .unwrap_or_default();
+
                         mime_type_to_ext(mime_type)
                     }
                     None => Ext::Unknown,
                 };
 
+                let fps = fmt
+                    .get("fps")
+                    .unwrap_or_default()
+                    .as_u64()
+                    .unwrap_or_default() as u16;
+
                 streams.push(YtStream {
-                    asr: fmt.get("audioSampleRate").and_then(|v| v.as_u64()),
+                    asr: fmt
+                        .get("audioSampleRate")
+                        .and_then(|v| v.as_str())
+                        .and_then(|a| a.parse().ok()),
                     file_size: fmt
                         .get("contentLength")
                         .and_then(|v| v.as_str().and_then(|s| s.parse().ok())),
@@ -388,9 +400,18 @@ impl InfoExtractor for YtExtractor {
                     width: fmt.get("width").and_then(|w| w.as_u64()),
                     format_duration,
                     has_drm,
-                    itag,
+                    itag: itag as u16,
                     source,
+                    // Format 22 is likely to be damaged. See https://github.com/yt-dlp/yt-dlp/issues/3372
+                    source_preference: match itag == 22 {
+                        true => -5,
+                        false => -1,
+                    } + match name.contains("Premium") {
+                        true => 100,
+                        false => 0,
+                    },
                     tbr,
+                    fps,
                     quality_label: name,
                     audio_track: AudioTrackInfo {
                         display_name: audio_display,
