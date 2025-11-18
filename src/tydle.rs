@@ -200,6 +200,7 @@ pub trait Extract {
         Self: 'a;
 }
 
+#[cfg(feature = "cipher")]
 pub trait Cipher {
     /// Deciphers a stream's signature and returns it's URL.
     fn decipher_signature<'a>(
