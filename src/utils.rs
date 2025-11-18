@@ -4,7 +4,9 @@ use maplit::hashmap;
 use std::collections::HashMap;
 
 use crate::yt_interface::Ext;
-use url::{Url, form_urlencoded};
+#[cfg(feature = "cipher")]
+use url::Url;
+use url::form_urlencoded;
 
 pub fn parse_query_string(qs: &str) -> Option<HashMap<String, String>> {
     std::panic::catch_unwind(|| form_urlencoded::parse(qs.as_bytes()).into_owned().collect()).ok()
@@ -19,6 +21,7 @@ pub fn convert_to_query_string(map: &HashMap<String, String>) -> String {
     serializer.finish()
 }
 
+#[cfg(feature = "cipher")]
 pub fn replace_n_sig_query_param(
     url_with_sig: &str,
     deciphered_n: String,

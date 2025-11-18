@@ -127,7 +127,7 @@ Though this is slower than if the ability to directly call on the client was pos
 Signature deciphering requires executing JavaScript somehow, as we need to execute YouTube's `player.js` file which contains the actual logic to decipher signatures.
 `tydle` uses the [Deno](https://deno.com) JavaScript Runtime to decipher YouTube URL signatures on native platforms. In WebAssembly builds, it uses the `eval()` function from the JavaScript context to perform the action instead.
 
-To actually use signature deciphering, import the `Cipher` trait to call `decipher_signature` on `ty`.
+To actually use signature deciphering, enable the `cipher` feature in your `Cargo.toml`, then import the `Cipher` trait to call `decipher_signature` on `ty`.
 
 ```rs
 use anyhow::Result;

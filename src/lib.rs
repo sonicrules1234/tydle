@@ -1,4 +1,5 @@
 mod cache;
+#[cfg(feature = "cipher")]
 mod cipher;
 mod extractor;
 mod utils;

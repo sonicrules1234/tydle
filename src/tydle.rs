@@ -8,6 +8,7 @@ use std::{
 use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::cache::CacheStore;
+#[cfg(feature = "cipher")]
 use crate::cipher::decipher::{SignatureDecipher, SignatureDecipherHandle};
 use crate::cookies::DomainCookies;
 use crate::yt_interface::{YtManifest, YtStreamResponse, YtVideoInfo};
@@ -36,6 +37,7 @@ pub struct TydleOptions {
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 pub struct Tydle {
     yt_extractor: Arc<Mutex<YtExtractor>>,
+    #[cfg(feature = "cipher")]
     signature_decipher: Arc<Mutex<SignatureDecipher>>,
 }
 
@@ -46,10 +48,12 @@ impl Tydle {
         let code_cache = Arc::new(CacheStore::new());
 
         let yt_extractor = YtExtractor::new(player_cache.clone(), code_cache.clone(), options)?;
+        #[cfg(feature = "cipher")]
         let signature_decipher = SignatureDecipher::new(player_cache, code_cache);
 
         Ok(Self {
             yt_extractor: Arc::new(Mutex::new(yt_extractor)),
+            #[cfg(feature = "cipher")]
             signature_decipher: Arc::new(Mutex::new(signature_decipher)),
         })
     }
@@ -270,6 +274,7 @@ impl Extract for Tydle {
     }
 }
 
+#[cfg(feature = "cipher")]
 impl Cipher for Tydle {
     type DecipherFut<'a> = Pin<Box<dyn Future<Output = Result<String>> + 'a>>;
 
