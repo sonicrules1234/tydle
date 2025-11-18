@@ -1,7 +1,7 @@
 /target
 
 # wasm-pack output
-/pkg
+/out
 
 .DS_Store
 .vscode
