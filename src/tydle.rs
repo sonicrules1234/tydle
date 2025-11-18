@@ -1,9 +1,13 @@
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use std::pin::Pin;
-use std::{
-    future::Future,
-    sync::{Arc, Mutex},
-};
+#[cfg(feature = "cipher")]
+use std::sync::Mutex as StdMutex;
+#[cfg(target_arch = "wasm32")]
+use std::sync::Mutex;
+use std::{future::Future, sync::Arc};
+#[cfg(not(target_arch = "wasm32"))]
+use tokio::sync::Mutex;
+
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
@@ -38,7 +42,7 @@ pub struct TydleOptions {
 pub struct Tydle {
     yt_extractor: Arc<Mutex<YtExtractor>>,
     #[cfg(feature = "cipher")]
-    signature_decipher: Arc<Mutex<SignatureDecipher>>,
+    signature_decipher: Arc<StdMutex<SignatureDecipher>>,
 }
 
 impl Tydle {
@@ -54,7 +58,7 @@ impl Tydle {
         Ok(Self {
             yt_extractor: Arc::new(Mutex::new(yt_extractor)),
             #[cfg(feature = "cipher")]
-            signature_decipher: Arc::new(Mutex::new(signature_decipher)),
+            signature_decipher: Arc::new(StdMutex::new(signature_decipher)),
         })
     }
 }
@@ -214,36 +218,55 @@ pub trait Cipher {
 }
 
 impl Extract for Tydle {
+    #[cfg(not(target_arch = "wasm32"))]
+    type ExtractStreamFut<'a> = Pin<Box<dyn Future<Output = Result<YtStreamResponse>> + Send + 'a>>;
+    #[cfg(not(target_arch = "wasm32"))]
+    type ExtractInfoFut<'a> = Pin<Box<dyn Future<Output = Result<YtVideoInfo>> + Send + 'a>>;
+    #[cfg(not(target_arch = "wasm32"))]
+    type ExtractManifestFut<'a> = Pin<Box<dyn Future<Output = Result<YtManifest>> + Send + 'a>>;
+
+    #[cfg(target_arch = "wasm32")]
     type ExtractStreamFut<'a> = Pin<Box<dyn Future<Output = Result<YtStreamResponse>> + 'a>>;
+    #[cfg(target_arch = "wasm32")]
     type ExtractInfoFut<'a> = Pin<Box<dyn Future<Output = Result<YtVideoInfo>> + 'a>>;
+    #[cfg(target_arch = "wasm32")]
     type ExtractManifestFut<'a> = Pin<Box<dyn Future<Output = Result<YtManifest>> + 'a>>;
 
     fn get_streams<'a>(&'a self, video_id: &'a VideoId) -> Self::ExtractStreamFut<'a> {
         Box::pin(async move {
+            #[cfg(not(target_arch = "wasm32"))]
+            let extractor = self.yt_extractor.lock().await;
+            #[cfg(target_arch = "wasm32")]
             let extractor = self
                 .yt_extractor
                 .lock()
-                .map_err(|e| anyhow!(e.to_string()))?;
+                .map_err(|e| anyhow::anyhow!(e.to_string()))?;
             extractor.extract_streams(video_id).await
         })
     }
 
     fn get_manifest<'a>(&'a self, video_id: &'a VideoId) -> Self::ExtractManifestFut<'a> {
         Box::pin(async move {
+            #[cfg(not(target_arch = "wasm32"))]
+            let extractor = self.yt_extractor.lock().await;
+            #[cfg(target_arch = "wasm32")]
             let extractor = self
                 .yt_extractor
                 .lock()
-                .map_err(|e| anyhow!(e.to_string()))?;
+                .map_err(|e| anyhow::anyhow!(e.to_string()))?;
             extractor.extract_manifest(video_id).await
         })
     }
 
     fn get_video_info<'a>(&'a self, video_id: &'a VideoId) -> Self::ExtractInfoFut<'a> {
         Box::pin(async move {
+            #[cfg(not(target_arch = "wasm32"))]
+            let extractor = self.yt_extractor.lock().await;
+            #[cfg(target_arch = "wasm32")]
             let extractor = self
                 .yt_extractor
                 .lock()
-                .map_err(|e| anyhow!(e.to_string()))?;
+                .map_err(|e| anyhow::anyhow!(e.to_string()))?;
             extractor.extract_video_info(video_id).await
         })
     }
@@ -253,10 +276,13 @@ impl Extract for Tydle {
         manifest: &'a YtManifest,
     ) -> Self::ExtractStreamFut<'a> {
         Box::pin(async move {
+            #[cfg(not(target_arch = "wasm32"))]
+            let extractor = self.yt_extractor.lock().await;
+            #[cfg(target_arch = "wasm32")]
             let extractor = self
                 .yt_extractor
                 .lock()
-                .map_err(|e| anyhow!(e.to_string()))?;
+                .map_err(|e| anyhow::anyhow!(e.to_string()))?;
             extractor.extract_streams_from_manifest(manifest).await
         })
     }
@@ -266,10 +292,13 @@ impl Extract for Tydle {
         manifest: &'a YtManifest,
     ) -> Self::ExtractInfoFut<'a> {
         Box::pin(async move {
+            #[cfg(not(target_arch = "wasm32"))]
+            let extractor = self.yt_extractor.lock().await;
+            #[cfg(target_arch = "wasm32")]
             let extractor = self
                 .yt_extractor
                 .lock()
-                .map_err(|e| anyhow!(e.to_string()))?;
+                .map_err(|e| anyhow::anyhow!(e.to_string()))?;
             extractor.extract_video_info_from_manifest(manifest).await
         })
     }
@@ -288,7 +317,7 @@ impl Cipher for Tydle {
             let signature_decipher = self
                 .signature_decipher
                 .lock()
-                .map_err(|e| anyhow!(e.to_string()))?;
+                .map_err(|e| anyhow::anyhow!(e.to_string()))?;
             signature_decipher.decipher(signature, player_url).await
         })
     }

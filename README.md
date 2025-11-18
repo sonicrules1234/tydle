@@ -168,7 +168,7 @@ $ cargo install wasm-pack
 After which, you can build with `wasm-pack` for target `wasm32-unknown-unknown` with an environment:
 
 ```sh
-$ wasm-pack build --target nodejs --out-name tydle --scope wvlen --out-dir pkg --release --no-default-features
+$ wasm-pack build --target nodejs --out-name tydle --scope wvlen --out-dir pkg --release --no-default-features --features cipher
 ```
 
 ## Credits
