@@ -70,6 +70,7 @@ async fn run() -> Result<()> {
         auth_cookies,
         prefer_insecure: args.prefer_insecure,
         source_address: args.source_ip.unwrap_or_default(),
+        ..Default::default()
     })?;
 
     let video_id = VideoId::new(args.video_id)?;

@@ -10,7 +10,7 @@ use crate::{
         auth::ExtractorAuthHandle, client::INNERTUBE_CLIENTS, cookies::ExtractorCookieHandle,
         extract::YtExtractor, ytcfg::ExtractorYtCfgHandle,
     },
-    yt_interface::{DEFAULT_YT_CLIENT, YtClient, YtEndpoint},
+    yt_interface::{YtClient, YtEndpoint},
 };
 
 pub trait ExtractorApiHandle {
@@ -44,7 +44,7 @@ impl ExtractorApiHandle for YtExtractor {
         visitor_id: Option<String>,
         default_client: Option<&YtClient>,
     ) -> Result<HashMap<&str, String>> {
-        let client = default_client.unwrap_or(&DEFAULT_YT_CLIENT);
+        let client = default_client.unwrap_or(&self.tydle_options.default_client);
         let innertube_client = INNERTUBE_CLIENTS.get(client).unwrap();
         let host_name = self.select_api_hostname(Some(client));
 
@@ -90,7 +90,7 @@ impl ExtractorApiHandle for YtExtractor {
         api_key: Option<String>,
         default_client: Option<&YtClient>,
     ) -> Result<HashMap<String, Value>> {
-        let client = default_client.unwrap_or(&DEFAULT_YT_CLIENT);
+        let client = default_client.unwrap_or(&self.tydle_options.default_client);
 
         let host_name = self.select_api_hostname(Some(client));
         let ep = endpoint.as_str();

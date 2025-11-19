@@ -9,7 +9,7 @@ use crate::{
         client::{INNERTUBE_CLIENTS, InnerTubeClient},
         extract::YtExtractor,
     },
-    yt_interface::{DEFAULT_YT_CLIENT, PREFERRED_LOCALE, YtClient},
+    yt_interface::{PREFERRED_LOCALE, YtClient},
 };
 
 pub trait ExtractorYtCfgHandle {
@@ -26,13 +26,13 @@ pub trait ExtractorYtCfgHandle {
 
 impl ExtractorYtCfgHandle for YtExtractor {
     fn select_api_hostname(&self, default_client: Option<&YtClient>) -> &str {
-        let client = default_client.unwrap_or(&DEFAULT_YT_CLIENT);
+        let client = default_client.unwrap_or(&self.tydle_options.default_client);
         let innertube_client = INNERTUBE_CLIENTS.get(client).unwrap();
         return innertube_client.innertube_host;
     }
 
     fn select_client_version(&self, default_client: Option<&YtClient>) -> &str {
-        let client = default_client.unwrap_or(&DEFAULT_YT_CLIENT);
+        let client = default_client.unwrap_or(&self.tydle_options.default_client);
         let innertube_client = INNERTUBE_CLIENTS.get(client).unwrap();
 
         let innertube_client_context = innertube_client.innertube_context.get("client").unwrap();
@@ -48,7 +48,7 @@ impl ExtractorYtCfgHandle for YtExtractor {
         ytcfg: Option<&HashMap<String, Value>>,
         default_client: Option<&YtClient>,
     ) -> Result<HashMap<String, Value>> {
-        let client = default_client.unwrap_or(&DEFAULT_YT_CLIENT);
+        let client = default_client.unwrap_or(&self.tydle_options.default_client);
 
         let innertube_client = match ytcfg {
             Some(cfg) => {
@@ -117,7 +117,7 @@ impl ExtractorYtCfgHandle for YtExtractor {
     }
 
     fn select_default_ytcfg(&self, default_client: Option<&YtClient>) -> Result<InnerTubeClient> {
-        let client = default_client.unwrap_or(&DEFAULT_YT_CLIENT);
+        let client = default_client.unwrap_or(&self.tydle_options.default_client);
         let mut ytcfg = INNERTUBE_CLIENTS.get(client).cloned().unwrap();
 
         if let (Some(auth_ua), true) = (&ytcfg.authenticated_user_agent, self.is_authenticated()?) {

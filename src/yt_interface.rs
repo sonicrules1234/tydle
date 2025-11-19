@@ -27,8 +27,9 @@ impl YtEndpoint {
     tsify(into_wasm_abi, from_wasm_abi),
     serde(rename_all = "camelCase")
 )]
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
+#[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
 pub enum YtClient {
+    #[default]
     Web,
     /// Safari UA returns pre-merged video+audio 144p/240p/360p/720p/1080p HLS formats.
     WebSafari,
@@ -106,7 +107,6 @@ impl YtClient {
     }
 }
 
-pub(crate) const DEFAULT_YT_CLIENT: YtClient = YtClient::Web;
 pub(crate) const PREFERRED_LOCALE: &str = "en";
 pub(crate) const YT_DOMAIN: &str = ".youtube.com";
 pub(crate) const YT_URL: &str = "https://www.youtube.com";

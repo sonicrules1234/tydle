@@ -11,6 +11,7 @@ use tokio::sync::Mutex;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
+use crate::YtClient;
 use crate::cache::CacheStore;
 #[cfg(feature = "cipher")]
 use crate::cipher::decipher::{SignatureDecipher, SignatureDecipherHandle};
@@ -36,6 +37,8 @@ pub struct TydleOptions {
     pub prefer_insecure: bool,
     /// Provide an address to set it as the `X-Forwarded-For` header when requesting YouTube.
     pub source_address: String,
+    /// Provide a default client that tydle will use to request YouTube when it fetches without a specific client internally.
+    pub default_client: YtClient,
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
