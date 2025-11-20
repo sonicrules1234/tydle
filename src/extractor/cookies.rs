@@ -36,7 +36,7 @@ pub trait ExtractorCookieHandle {
     fn get_cookies(&self, url: &str) -> Result<DomainCookies>;
     fn get_youtube_cookies(&self) -> Result<DomainCookies>;
     /// Get SAPISID, 1PSAPISID, 3PSAPISID cookie values.
-    fn get_sid_cookies<'a>(&'a self) -> Result<SidCookies>;
+    fn get_sid_cookies(&self) -> Result<SidCookies>;
     fn make_sid_authorization(
         &self,
         scheme: &str,
