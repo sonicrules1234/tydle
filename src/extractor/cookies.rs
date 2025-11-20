@@ -5,7 +5,7 @@ use sha1::{Digest, Sha1};
 
 use crate::{
     YT_DOMAIN,
-    cookies::{Cookie, CookieStore, DomainCookies},
+    cookies::{CookieStore, DomainCookies},
     extractor::extract::YtExtractor,
     utils::unix_timestamp_secs,
     yt_interface::YT_URL,
@@ -13,16 +13,16 @@ use crate::{
 
 #[derive(Debug)]
 pub struct SidCookies {
-    pub yt_sapisid: Option<Cookie>,
-    pub yt_1psapisid: Option<Cookie>,
-    pub yt_3psapisid: Option<Cookie>,
+    pub yt_sapisid: Option<String>,
+    pub yt_1psapisid: Option<String>,
+    pub yt_3psapisid: Option<String>,
 }
 
 impl SidCookies {
     pub fn new(
-        yt_sapisid: Option<Cookie>,
-        yt_1psapisid: Option<Cookie>,
-        yt_3psapisid: Option<Cookie>,
+        yt_sapisid: Option<String>,
+        yt_1psapisid: Option<String>,
+        yt_3psapisid: Option<String>,
     ) -> Self {
         Self {
             yt_sapisid,
@@ -31,11 +31,12 @@ impl SidCookies {
         }
     }
 }
+
 pub trait ExtractorCookieHandle {
     fn get_cookies(&self, url: &str) -> Result<DomainCookies>;
     fn get_youtube_cookies(&self) -> Result<DomainCookies>;
     /// Get SAPISID, 1PSAPISID, 3PSAPISID cookie values.
-    fn get_sid_cookies(&self) -> Result<SidCookies>;
+    fn get_sid_cookies<'a>(&'a self) -> Result<SidCookies>;
     fn make_sid_authorization(
         &self,
         scheme: &str,
@@ -46,7 +47,7 @@ pub trait ExtractorCookieHandle {
     /// Generate API Session ID Authorization for Innertube requests. Assumes all requests are secure. (HTTPS)
     fn get_sid_authorization_header(
         &self,
-        origin: Option<String>,
+        origin: Option<&String>,
         user_session_id: Option<String>,
     ) -> Result<Option<String>>;
 }
@@ -63,15 +64,15 @@ impl ExtractorCookieHandle for YtExtractor {
 
     fn get_sid_cookies(&self) -> Result<SidCookies> {
         let yt_cookies = self.get_youtube_cookies()?;
-        let yt_sapisid = yt_cookies.get("SAPISID").cloned();
+        let yt_sapisid = yt_cookies
+            .get("SAPISID")
+            .and_then(|c| Some(c.value.clone()));
         let yt_3papisid = yt_cookies
-            .iter()
-            .find(|c| c.name == "__Secure-3PAPISID")
-            .cloned();
+            .get("__Secure-3PAPISID")
+            .and_then(|c| Some(c.value.clone()));
         let yt_1papisid = yt_cookies
-            .iter()
-            .find(|c| c.name == "__Secure-1PAPISID")
-            .cloned();
+            .get("__Secure-1PAPISID")
+            .and_then(|c| Some(c.value.clone()));
         let sid_cookies = SidCookies::new(
             yt_sapisid.or_else(|| yt_3papisid.clone()),
             yt_1papisid,
@@ -126,7 +127,7 @@ impl ExtractorCookieHandle for YtExtractor {
 
     fn get_sid_authorization_header(
         &self,
-        origin: Option<String>,
+        origin: Option<&String>,
         user_session_id: Option<String>,
     ) -> Result<Option<String>> {
         let mut authorizations: Vec<String> = Vec::new();
@@ -146,8 +147,8 @@ impl ExtractorCookieHandle for YtExtractor {
             if let Some(sid) = sid_opt {
                 let auth = self.make_sid_authorization(
                     scheme,
-                    sid.value,
-                    origin.as_deref().unwrap_or(YT_URL).to_string(),
+                    sid,
+                    origin.cloned().unwrap_or(YT_URL.to_string()),
                     additional_parts.clone(),
                 )?;
                 authorizations.push(auth);

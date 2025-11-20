@@ -30,11 +30,11 @@ pub trait ExtractorAuthHandle {
     fn get_session_index(&self, data: &[&HashMap<String, Value>]) -> Option<i32>;
     fn generate_cookie_auth_headers(
         &self,
-        ytcfg: HashMap<String, Value>,
+        ytcfg: &HashMap<String, Value>,
         delegated_session_id: Option<String>,
         user_session_id: Option<String>,
         session_index: Option<i32>,
-        origin: String,
+        origin: &String,
     ) -> Result<HashMap<&str, String>>;
 }
 
@@ -196,16 +196,16 @@ impl ExtractorAuthHandle for YtExtractor {
 
     fn generate_cookie_auth_headers(
         &self,
-        ytcfg: HashMap<String, Value>,
+        ytcfg: &HashMap<String, Value>,
         delegated_session_id: Option<String>,
         user_session_id: Option<String>,
         session_index: Option<i32>,
-        origin: String,
+        origin: &String,
     ) -> Result<HashMap<&str, String>> {
         let mut headers = HashMap::new();
 
         let delegated_sess_id = if delegated_session_id.is_none() {
-            self.get_delegated_session_id(&[&ytcfg])
+            self.get_delegated_session_id(&[ytcfg])
         } else {
             None
         };
@@ -216,7 +216,7 @@ impl ExtractorAuthHandle for YtExtractor {
 
         let sess_index = match session_index {
             Some(s_id) => Some(s_id),
-            None => self.get_session_index(&[&ytcfg]),
+            None => self.get_session_index(&[ytcfg]),
         };
 
         if delegated_sess_id.is_some() || sess_index.is_some() {
@@ -228,12 +228,12 @@ impl ExtractorAuthHandle for YtExtractor {
 
         let user_sess_id = match user_session_id {
             Some(user_s_id) => Some(user_s_id),
-            None => self.get_user_session_id(&[&ytcfg]),
+            None => self.get_user_session_id(&[ytcfg]),
         };
 
-        if let Some(auth) = self.get_sid_authorization_header(Some(origin.clone()), user_sess_id)? {
+        if let Some(auth) = self.get_sid_authorization_header(Some(origin), user_sess_id)? {
             headers.insert("Authorization", auth);
-            headers.insert("X-Origin", origin);
+            headers.insert("X-Origin", origin.clone());
         }
 
         if let Some(logged_in) = ytcfg.get("LOGGED_IN") {

@@ -264,7 +264,7 @@ impl InfoExtractor for YtExtractor {
                     .get("quality")
                     .and_then(|s| Some(s.as_str().unwrap_or_default().to_string().to_lowercase()));
 
-                if quality.clone().unwrap_or_default() == "tiny" || quality.is_none() {
+                if quality.is_none() || quality.clone().is_some_and(|q| q == "tiny") {
                     let audio_quality = fmt
                         .get("audioQuality")
                         .unwrap_or_default()
@@ -276,7 +276,7 @@ impl InfoExtractor for YtExtractor {
                 }
 
                 // The 3gp format (17) in android client has a quality of "small", but is actually worse than other formats.
-                if itag.clone() == 17 {
+                if itag == 17 {
                     quality = Some("tiny".to_string());
                 }
 
@@ -335,12 +335,7 @@ impl InfoExtractor for YtExtractor {
                     .get("qualityLabel")
                     .and_then(|ql| ql.as_str())
                     .and_then(|qls| Some(qls.to_string()))
-                    .unwrap_or(
-                        quality
-                            .clone()
-                            .unwrap_or_default()
-                            .replace("audio_quality_", ""),
-                    );
+                    .unwrap_or(quality.unwrap_or_default().replace("audio_quality_", ""));
 
                 let audio_display = audio_track
                     .get("displayName")
@@ -429,8 +424,8 @@ impl InfoExtractor for YtExtractor {
                         .and_then(|dr| dr.as_bool())
                         .unwrap_or_default(),
                     ext,
-                    is_dash: acodec.clone().unwrap_or_default() == "none"
-                        || vcodec.clone().unwrap_or_default() == "none",
+                    is_dash: acodec.as_ref().is_some_and(|ac| ac == "none")
+                        || vcodec.as_ref().is_some_and(|vc| vc == "none"),
                     codec: Codec { vcodec, acodec },
                 });
             }

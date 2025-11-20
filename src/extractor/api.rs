@@ -50,10 +50,18 @@ impl ExtractorApiHandle for YtExtractor {
 
         let origin = format!("https://{}", host_name);
 
+        let cookie_headers = self.generate_cookie_auth_headers(
+            &ytcfg,
+            delegated_session_id,
+            user_session_id,
+            session_index,
+            &origin,
+        )?;
+
         let mut headers = hashmap! {
             "X-YouTube-Client-Name" => innertube_client.innertube_context_client_name.to_string(),
             "X-YouTube-Client-Version" => self.select_client_version(Some(client)).to_string(),
-            "Origin" => origin.clone(),
+            "Origin" => origin,
         };
 
         if let Some(available_visitor_id) = visitor_id {
@@ -67,14 +75,6 @@ impl ExtractorApiHandle for YtExtractor {
         if let Some(user_agent) = innertube_client_context.get("userAgent") {
             headers.insert("User-Agent", user_agent.as_str().unwrap_or_default().into());
         }
-
-        let cookie_headers = self.generate_cookie_auth_headers(
-            ytcfg,
-            delegated_session_id,
-            user_session_id,
-            session_index,
-            origin,
-        )?;
 
         headers.extend(cookie_headers);
 
